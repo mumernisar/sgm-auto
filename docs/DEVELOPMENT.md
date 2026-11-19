@@ -36,7 +36,7 @@ screenshot ──► screens.detect() ──► screen name ──► mode handl
 | `bot/core.py` | `Ctx`: log, annotated debug images, `look`, `settle`, `wait_for`, `wait_change`, tap/drag helpers, `Stop` |
 | `bot/control.py` | Pause / resume / stop and log feed for the app overlay (`checkpoint()` runs in every `look()`) |
 | `templates/` | Cropped reference images, made by `tools/crop_templates.py` (`_sheet.png` = contact sheet) |
-| `shots/` | 62 reference screenshots (`NNN_label.png` + `_small` copy). The player name is blurred (`tools/blur_name.py`; `snap.sh` runs it when `shots/.player_name` exists). `notes.txt` (git-ignored) keeps the full labels |
+| `shots/` | 63 reference screenshots (`NNN_label.png` + `_small` copy). The player name is blurred (`tools/blur_name.py`; `snap.sh` runs it when `shots/.player_name` exists). `notes.txt` (git-ignored) keeps the full labels |
 | `tests/` | `test_screens.py` (every shot → expected screen) and `test_readers.py` (verified values) |
 | `tools/blur_name.py` | Blurs your in-game name in shots (OCR on the three places it appears). Name from `shots/.player_name` (git-ignored) or `$SGM_PLAYER_NAME` |
 | `snap.sh` | `./snap.sh <label>` saves the tablet's screen into `shots/` (used with `! ./snap.sh …`) |

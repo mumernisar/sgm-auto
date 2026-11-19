@@ -96,11 +96,11 @@ if __name__ == "__main__":
                                    len(eventmap.unfinished(st, boss=False))), want)
 
     # area overview: (percent, current)
-    for num, want in [("059", [(30, True)]), ("060", [(70, True)]), ("049", [(10, True)]), ("054", [(0, True)]), ("055", [(0, True), (100, False)])]:
+    for num, want in [("063", [(100, True), (100, False)]), ("059", [(30, True)]), ("060", [(70, True)]), ("049", [(10, True)]), ("054", [(0, True)]), ("055", [(0, True), (100, False)])]:
         check(f"{num} areas", [(a.percent, a.current) for a in r.areas(load(num))], want)
 
     # chapter arrows beside the current area: (« lit, » lit); greyed = first / last chapter, none = no chapters
-    for num, want in [("059", (True, True)), ("060", (False, True)), ("049", (False, False))]:
+    for num, want in [("059", (True, True)), ("060", (False, True)), ("049", (False, False)), ("063", (False, True))]:
         img = load(num)
         arrows = r.chapter_arrows(img, next(a for a in r.areas(img) if a.current))
         check(f"{num} chapter arrows", (bool(arrows["prev"]), bool(arrows["next"])), want)

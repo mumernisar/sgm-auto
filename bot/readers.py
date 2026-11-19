@@ -247,6 +247,8 @@ def areas(img):
                 out.append(Area((int(x), int(y - 45)), pct, True))
                 break
     for pct, x, y in _percent_words(img, None, 0.5):
+        if y < 260:  # the top bar (coins, gems, the chevron itself) can OCR as a stray 'N%'; panels never sit there
+            continue
         if not any(abs(a.tap[0] - x) < 150 and abs(a.tap[1] + 45 - y) < 80 for a in out):
             out.append(Area((int(x), int(y - 45)), pct, False))  # tap the panel's middle, above the %
     if chev and not any(a.current for a in out):  # the panel % was only found by the whole-screen pass

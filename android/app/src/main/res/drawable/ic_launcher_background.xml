@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- deep navy like the game's panels, a little lighter behind the avatar -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:type="radial" android:centerX="0.5" android:centerY="0.42"
+        android:gradientRadius="80dp" android:startColor="#2A345A" android:endColor="#12162A" />
+</shape>
