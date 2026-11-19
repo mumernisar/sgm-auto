@@ -28,10 +28,10 @@ screenshot ──► screens.detect() ──► screen name ──► mode handl
 | `bot/device.py` | `AdbDevice`, `AppDevice`: capture, tap, swipe, drag, **pinch**; charging off (adb only) |
 | `bot/vision.py` | Template matching (`find`, `find_all`, gray mode, `find_gold`), shape matching for icons, colour helpers, OCR helpers, `parse_score` |
 | `bot/screens.py` | `CHECKS` table: which template identifies which screen, checked in order (popups first). Fallback: story maps by skull badges |
-| `bot/readers.py` | Reads specific screens: score bar, FIGHT enabled, requirement icons, tooltips, lobby, picker cards and slots, energy cost, list card, areas, auto state |
-| `bot/eventmap.py` | Node map: zoom detection, nodes, cleared, reachable, labels, boss nodes, `choose()` |
+| `bot/readers.py` | Reads specific screens: score bar, FIGHT enabled, requirement icons, tooltips, lobby, picker cards and slots, energy cost, list card, areas and chapter arrows, auto state |
+| `bot/eventmap.py` | Node map: zoom detection, nodes, cleared, reachable, marker guess, labels, boss nodes, blue paths leaving the screen (`exits`), `choose()` / `unfinished()` |
 | `bot/team.py` | Filter dialog control (tracked state), sort, card list scanning, drag, requirement planning, `build_event_team`, `build_prize_team` |
-| `bot/modes.py` | Screen handlers: `Common`, `EventMode`, `PrizeMode`, `AutoMode` |
+| `bot/modes.py` | Screen handlers: `Common`, `EventMode`, `PrizeMode`, `AutoMode`; `lives()` gives the `[fight +++]` tries-left mark |
 | `bot/runner.py` | Main loop, unknown-screen timeout, error reporting, charging timer (adb only) |
 | `bot/core.py` | `Ctx`: log, annotated debug images, `look`, `settle`, `wait_for`, `wait_change`, tap/drag helpers, `Stop` |
 | `bot/control.py` | Pause / resume / stop and log feed for the app overlay (`checkpoint()` runs in every `look()`) |
@@ -59,14 +59,15 @@ screenshot ──► screens.detect() ──► screen name ──► mode handl
 ## Screen detection
 
 `screens.CHECKS` rows are `(screen, template, search region, threshold)`, matched in order. The first hit wins,
-so **popups that can sit on top of other screens come first** (cutscene, offer, keep streak, energy refill,
-missing moves, paused). Then:
+so **popups that can sit on top of other screens come first** (cutscene, offer, fight modifiers, keep streak,
+energy refill, missing moves, paused). Then:
 
 - `event_prefight` vs `prize_team` share the TEAM button; the ⚡ cost plate above FIGHT means prize
   (`readers.fight_energy_cost` needs ≥3 bolts in a row).
 - `area_chevron` is matched with `find_gold` (only saturated gold pixels) because it sits on the moon or a
   dark sky.
-- Story maps have no TIME REMAINING: `eventmap.looks_like_map` (≥2 skull badges at any zoom).
+- Story maps have no TIME REMAINING: `eventmap.looks_like_map` (≥2 skull badges at any zoom, or one badge plus
+  the player marker when zoomed in close).
 
 ### Adding a new screen
 
@@ -102,6 +103,22 @@ missing moves, paused). Then:
   footprint (double nodes extend right, triangle nodes extend down) counts as playable. Bright uncleared portraits are
   playable too. Failing both, the node nearest the marker. Zoom is the skull scale with the best match (0.5–1.25), and bosses use
   1.15–1.5x of that.
+- **Map choice order** (`EventMode.event_map`): a node with a visible blue line (boss excluded) → zoom out
+  (up to twice) → the node next to the marker (`Node.guess`, dropped after 2 failed taps) → the boss, only if
+  it isn't a guess and nothing else uncleared is in view → pan: first toward a blue line that runs off the
+  screen (`MapState.exits`), then the 8 views around the start → whatever is playable. A tap only counts as
+  opened when the pre-fight screen shows (`map_taps` resets there), so a popup can't make it loop.
+- **Boss nodes** are the same skull badge drawn ~1.35x bigger, and so is their ✓: checkmarks are matched at
+  both sizes.
+- **Requirement flashing red**: an unmet requirement on the team picker pulses red over the whole icon, which
+  once read as "excluded". Excluded = red ring (radius 40–48) **and** a mostly clear inside (<0.3 red).
+- **Chapters** (« AREA CHAPTER N », `readers.chapter_arrows`): arrows are matched beside the current area's %;
+  lit = ~18% gold pixels, greyed (first / last chapter) = ~0. After an arrow tap the panel and camera slide,
+  so `EventMode._chapter_panel` reads until two reads agree. The chevron bobs ~55px: the panel % is read
+  in block mode, then sparse mode, then taken from the whole-screen pass. `%` text in the top bar is ignored
+  (coins / chevron once read as "4%").
+- **Events list**: the neighbouring cards have their own PLAY and ›, which match as well as the real ones
+  (0.93 vs 0.99). Only a PLAY centred at x≈1280 counts; its › is searched in a tight box at (+235, −160).
 - **Timing**: screens slide in. Always `ctx.settle()` before reading a freshly opened screen, and
   `wait_change()` after FIGHT (popups animate in; re-handling the old frame rebuilt teams twice).
 
@@ -133,6 +150,8 @@ Setting up or porting to another device: `docs/SETUP.md`.
 - `app/build.gradle.kts` copies `../bot` → `app/src/main/python/bot` and `../templates` →
   `app/src/main/assets/templates` before each build (`syncBot`, `syncTemplates`; git-ignored copies).
   **Edit the repo's `bot/`, never those copies.**
+- Launcher icon: adaptive icon in `res/mipmap-anydpi-v26` (the player's avatar cut along its gold octagon as
+  the foreground PNG, a navy gradient drawable behind it).
 - Java side:
   - `App`: unpacks templates + `tessdata/eng.traineddata` to the files dir, `Ocr.init`, starts Python,
     `app_main.init(home)` (sets `SGM_HOME`).
@@ -155,7 +174,7 @@ Setting up or porting to another device: `docs/SETUP.md`.
 
 ```sh
 .venv/bin/python -m tests.test_screens   # all shots classify as expected (exit 1 on mismatch)
-.venv/bin/python -m tests.test_readers   # 41 checks of values verified on the real game (exit 1 on failure)
+.venv/bin/python -m tests.test_readers   # values verified on the real game (exit 1 on failure)
 /opt/homebrew/bin/python3.10 -m py_compile bot/*.py   # the app runs Python 3.10: no 3.11+ syntax
 ```
 

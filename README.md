@@ -4,7 +4,7 @@ Skullgirls Mobile automation for event maps, story / origin events and prize fig
 tablet (2560x1600 landscape, Android 11+, arm64, Magisk). It reads the screen with OpenCV and Tesseract (no LLM, no network) and follows the rules in `FLOW.md`.
 
 - **Using it:** the Android app (`android/`) runs everything on the tablet behind a floating control panel.
-- **Developing it:** the same Python package (`bot/`) runs from the Mac over adb, with tests against 62
+- **Developing it:** the same Python package (`bot/`) runs from the Mac over adb, with tests against 63
   reference screenshots.
 
 **Setting it up on your own device** (requirements, root, other screens, the plan for no root): `docs/SETUP.md`.
@@ -21,6 +21,7 @@ Docs: `FLOW.md` (behaviour, the user's rules) · `docs/DEVELOPMENT.md` (how it w
 3. The panel shows the current step: **⏸** pauses, **▶** resumes, **■** stops. **☰** opens recent steps and the
    mode (**Auto** detects event vs prize; Event / Prize force one) and pauses the bot while open. Mode changes
    apply from the next ▶. Drag the panel by its text.
+   During an event fight it shows the tries left on that node: `[fight +++]`, and each loss turns a `+` into `✗`.
 4. When the bot stops on its own, the reason is the last line on the panel (e.g. an unknown screen, or no
    opponent under the cap).
 
