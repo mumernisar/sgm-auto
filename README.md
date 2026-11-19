@@ -4,7 +4,10 @@ A bot that plays **Skullgirls Mobile** on its own: event maps, origin stories an
 on the Android device behind a small floating panel, reads the screen with OpenCV and Tesseract (no AI, no
 network) and never spends anything.
 
-[![Watch the demo (90 s)](docs/demo.jpg)](docs/demo.mp4)
+
+https://github.com/user-attachments/assets/e9a1c717-fd89-42b0-a11f-dc0f9e0903a4
+
+
 
 ## What it does
 
