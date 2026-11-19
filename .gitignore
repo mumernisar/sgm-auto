@@ -1,4 +1,5 @@
 .venv/
+.DS_Store
 __pycache__/
 logs/
 config.json
@@ -6,3 +7,5 @@ templates/_sheet.png
 
 # personal notes made while snapping screens (labels stay in the filenames)
 shots/notes.txt
+# your in-game name, for tools/blur_name.py
+shots/.player_name

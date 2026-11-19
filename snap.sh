@@ -8,4 +8,5 @@ label="${1:-screen}"
 f="${n}_${label[1,60]}"
 adb exec-out screencap -p > "$f.png" && sips -Z 1280 "$f.png" --out "${f}_small.png" >/dev/null
 echo "$n: $label" >> notes.txt
+if [[ -n "$SGM_PLAYER_NAME" || -f .player_name ]]; then ../.venv/bin/python ../tools/blur_name.py "$f.png"; fi
 echo "saved $PWD/$f.png"

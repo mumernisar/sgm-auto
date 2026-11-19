@@ -49,8 +49,9 @@ A different resolution or aspect ratio (most phones are 20:9) needs more. Unity 
 edges and corners, so on a wider screen they move by different amounts. Scaling everything uniformly only
 works on another 16:10 screen.
 
-1. **Reference screenshots.** For every screen in `tests/test_screens.py`, open it on your device and run
-   `./snap.sh <label>`. Use the same shot numbers, or update `EXPECTED` and `tools/crop_templates.py`.
+1. **Reference screenshots.** Put your in-game name in `shots/.player_name` so `snap.sh` blurs it. Then, for every
+   screen in `tests/test_screens.py`, open it on your device and run `./snap.sh <label>`. The blur looks for the
+   name at the reference device's positions, so on a new layout update `PLACES` in `tools/blur_name.py`. Use the same shot numbers, or update `EXPECTED` and `tools/crop_templates.py`.
 2. **Templates.** Re-measure each crop box in `tools/crop_templates.py` `SPEC` for your shots, run
    `.venv/bin/python tools/crop_templates.py`, and check `templates/_sheet.png`.
 3. **Coordinates.** Fixed tap points and search regions are absolute pixels in `bot/modes.py`, `bot/screens.py`,
