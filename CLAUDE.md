@@ -19,5 +19,19 @@ Working rules learned with this user:
 - Charging re-enables itself. `./charge.sh off` when the user asks; a run over adb does it every 5 min (the app doesn't).
 - The app runs Python 3.10: check with `/opt/homebrew/bin/python3.10 -m py_compile bot/*.py`.
 - Edit `bot/` in the repo root. `android/app/src/main/python/bot` is a generated copy.
-- Releases: `./release.sh <version>` (clean `main`, `gh` logged in). Betas `X.Y.Z-beta.N`, bump N per beta;
-  drop `-beta` for a final. Never reuse a version; the APK's versionCode comes from `VERSION`.
+
+Git, releases (repo: `git@github.com:mumernisar/sgm-auto.git`, public; `main` tracks `origin/main`):
+- Commit and push only when asked; ask before adding a Co-Authored-By trailer. Other players' names in shots
+  are fine, but the user's own in-game name must never be public: `snap.sh` blurs it in shots, and any video
+  or image for the README / posts needs it blurred too (top bar, prize lobby panel, fight results).
+- A release = `./release.sh <version>` from a clean `main` (`gh` is logged in as mumernisar). It runs both
+  tests + py_compile, writes `VERSION`, builds the debug APK, commits "Release v<version>" if `VERSION`
+  changed, tags `v<version>`, pushes `main` and the tag, and creates the GitHub release with
+  `sgm-bot-<version>.apk` (`-beta.N` → pre-release). Notes = commit subjects since the previous tag.
+- Versions: `X.Y.Z-beta.N` for betas (bump N each time), `X.Y.Z` for a final. Never reuse one. `VERSION` is
+  the single source: Gradle reads it for versionName and derives versionCode
+  (`major*1e6 + minor*1e4 + patch*100 + (N or 99)`, so a beta sorts below its final).
+- The user chose this local script over GitHub Actions / a release key (too much for a side project): don't
+  re-propose it. APKs are signed with this Mac's debug key, which is what lets a release update the installed
+  app in place; building on another machine would need an uninstall.
+- History: `v0.1.0-beta.1` (first release). Check `gh release list` for the latest before picking a number.

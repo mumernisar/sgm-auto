@@ -1,16 +1,50 @@
-# sgm-bot
+# SGM Bot
 
-Skullgirls Mobile automation for event maps, story / origin events and prize fights, on a rooted Android
-tablet (2560x1600 landscape, Android 11+, arm64, Magisk). It reads the screen with OpenCV and Tesseract (no LLM, no network) and follows the rules in `FLOW.md`.
+A bot that plays **Skullgirls Mobile** on its own: event maps, origin stories and prize fights. It runs entirely
+on the Android device behind a small floating panel, reads the screen with OpenCV and Tesseract (no AI, no
+network) and never spends anything.
 
-- **Using it:** the Android app (`android/`) runs everything on the tablet behind a floating control panel.
-- **Developing it:** the same Python package (`bot/`) runs from the Mac over adb, with tests against 63
+[![Watch the demo (90 s)](docs/demo.jpg)](docs/demo.mp4)
+
+## What it does
+
+Pick a mode on the panel (☰), press ▶ and leave it.
+
+- **Event**: origin stories and event maps.
+  - Reads the map and plays the next node, chapter by chapter, boss last.
+  - Builds the team itself when a node has requirements: reads them (including "NEED … VARIANT" tooltips),
+    filters your roster and drags the right fighter in.
+- **Prize**: prize fights you don't want to grind by hand.
+  - Picks the opponent with the best bonus under a power cap.
+  - Saves energy: the cheapest gold fillers plus one anchor sized to the enemy, so strong fighters stay fresh.
+    Fighters without enough bolts are skipped.
+- **Auto**: works out which of the two you're on and switches by itself.
+
+It never taps gems, purchases, energy refills or ads.
+
+**Tested on:** origin stories, older prize fights, and monthly events (Lovesick, Gremlin-style maps).
+
+## Get it
+
+Download the APK from [Releases](../../releases) and install it on the device.
+
+- **Needs:** a rooted Android device (Magisk), Android 11+, arm64. It's built and tested on a 2560x1600 tablet;
+  other screens need their templates and positions checked first.
+- **Other devices:** `docs/SETUP.md` covers requirements, other screens and the plan for no root. The repo is
+  set up for coding agents too: point yours at it (`CLAUDE.md` is the entry point) and it has what it needs to
+  adapt the bot to your device.
+
+## For developers
+
+- **Using it:** the Android app (`android/`) runs everything on the device behind the floating panel.
+- **Developing it:** the same Python package (`bot/`) runs from the Mac over adb, with tests against 64
   reference screenshots.
 
-**Setting it up on your own device** (requirements, root, other screens, the plan for no root): `docs/SETUP.md`.
+Docs: `FLOW.md` (behaviour, the rules) · `docs/DEVELOPMENT.md` (how it works, how to change it) ·
+`docs/SETUP.md` (setup on other devices) · `CLAUDE.md` (agent notes).
 
-Docs: `FLOW.md` (behaviour, the user's rules) · `docs/DEVELOPMENT.md` (how it works, how to change it) ·
-`CLAUDE.md` (agent notes).
+*Unofficial fan project, not affiliated with Hidden Variable or Autumn Games. Automating the game may break its
+terms of service: use it at your own risk.*
 
 ## Use the app (no laptop needed)
 
