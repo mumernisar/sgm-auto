@@ -34,11 +34,13 @@ class Config:
     pair_range: tuple = (0.4, 0.75)     # ... each this fraction of the enemy total (together ~0.8-1.5x)
     big_total: int = 15000              # above this enemy total auto battle needs more margin:
     big_pair_range: tuple = (0.6, 0.9)  # ... each anchor this fraction (together ~1.2-1.8x)
-    # where to look for an anchor of at least `lo`: (min lo, rarities to filter, ascending sort)
-    anchor_search: tuple = ((0, ("silver", "gold", "diamond"), True),
-                            (2500, ("gold", "diamond"), False),
+    anchor_min: int = 1400              # anchors are never weaker than this (most golds sit below it)
+    # where to look for an anchor of at least `lo`: (min lo, rarities to filter, ascending sort).
+    # Golds bunch up at the low end, so above 1400 the search starts from the strong end.
+    anchor_search: tuple = ((0, ("gold",), True),
+                            (1400, ("gold",), False),
                             (9000, ("diamond",), False))
-    base_rarities: tuple = ("silver", "gold", "diamond")
+    base_rarities: tuple = ("gold", "diamond")  # fillers too: plenty of cheap golds, no silver needed
     use_energy_refills: bool = False
 
     # safety / housekeeping

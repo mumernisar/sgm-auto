@@ -204,8 +204,9 @@ public class OverlayService extends Service implements BotListener {
             rb.setText(o[1]);
             rb.setTextColor(Color.WHITE);
             rb.setTag(o[0]);
-            rb.setChecked(o[0].equals(mode));
+            rb.setId(View.generateViewId());  // without ids the group can't uncheck the default
             modes.addView(rb);
+            if (o[0].equals(mode)) modes.check(rb.getId());
         }
         modes.setOnCheckedChangeListener((g, id) -> {
             mode = (String) g.findViewById(id).getTag();

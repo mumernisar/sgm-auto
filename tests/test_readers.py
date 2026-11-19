@@ -68,6 +68,7 @@ if __name__ == "__main__":
           [(9184, "fire", "peacock"), (8334, "dark", "peacock"), (6635, "fire", "peacock"),
            (5704, "neutral", "peacock"), (4611, "dark", "peacock")])
     check("025 slots", [(s.score, s.element) for s in r.team_slots(load("025"))], [(2786, "air"), (9184, "fire")])
+    check("042 slots (no phantom from opponent art)", [s.icon[0] for s in r.team_slots(load("042"))], [88, 492, 894])
     check("041 cards", [(c.score, c.energy) for c in r.picker_cards(load("041"), with_energy=True, with_character=False)],
           [(172, 10), (173, 10), (173, 10), (173, 10), (173, 10)])
 

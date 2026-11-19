@@ -101,7 +101,9 @@ class Filter:
         self._scroll(down=False)
         self._sync(UNSCROLLED, desired)
         chars_wanted = {n for n in desired if n in SCROLLED}
-        chars_known_off = self.state is not None and not any(self.state.get(n) for n in SCROLLED)
+        # read the character tiles once per run, so later calls with the same tiles can skip the dialog
+        chars_known_off = (self.state is not None and all(n in self.state for n in SCROLLED)
+                           and not any(self.state[n] for n in SCROLLED))
         if chars_wanted or not chars_known_off or need_characters:
             self._scroll(down=True)
             self._sync(SCROLLED, desired)
@@ -327,10 +329,12 @@ def anchor_targets(cfg, enemy):
     """Score ranges (lo, hi) for the anchor fighter(s): one anchor, or two for bigger enemy teams."""
     if enemy > cfg.pair_above:
         a, b = cfg.big_pair_range if enemy > cfg.big_total else cfg.pair_range
-        lo, hi = a * enemy, b * enemy
-        return [(lo, hi), (lo, hi)]
-    top = cfg.small_total_max if enemy <= cfg.small_total else cfg.anchor_range[1]
-    return [(cfg.anchor_range[0] * enemy, top * enemy)]
+        ranges = [(a * enemy, b * enemy)] * 2
+    else:
+        top = cfg.small_total_max if enemy <= cfg.small_total else cfg.anchor_range[1]
+        ranges = [(cfg.anchor_range[0] * enemy, top * enemy)]
+    floor = cfg.anchor_min
+    return [(max(lo, floor), max(hi, floor)) for lo, hi in ranges]
 
 
 def anchor_search(cfg, lo):

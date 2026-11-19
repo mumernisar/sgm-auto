@@ -94,12 +94,13 @@ Goal: save energy (it refills slowly) by using just enough power to win.
    The cost per fighter is the ⚡ count above FIGHT. Fighters with fewer bolts than the cost are skipped.
    - `E` ≤ 5k: one anchor at 0.8–1.5x `E` (up to 2x when `E` ≤ 3k).
    - `E` > 5k: two anchors at 0.4–0.75x `E` each (0.6–0.9x each above 15k, about 1.2–1.8x together).
-   - Anchor search narrows by tier and direction: below 2.5k use silver+ ascending, from 2.5k gold+diamond
-     descending, from 9k diamond only, descending. Take the first fighter in range.
-   - Fillers: the cheapest silver+ fighters that meet the requirements, ascending, placed on the **left**.
+   - Anchors are never below 1400 (most golds sit under it, so a weaker anchor is never worth the scroll).
+   - Anchor search narrows by tier and direction: from 1400 gold only, **descending** (few golds are strong,
+     so the strong end is quick to reach); from 9k diamond only, descending. Take the first fighter in range.
+   - Fillers: the cheapest gold+ fighters that meet the requirements, ascending, placed on the **left**.
      Anchors go on the right, strongest at the front.
-   - Base filter for the mode is silver + gold + diamond (filters are inclusive, so this hides bronze).
-     Reset to it before FIGHT.
+   - Base filter for the mode is gold + diamond (filters are inclusive, so this hides bronze and silver).
+     Reset to it before FIGHT. The filter dialog is only opened when its tiles or the sort must change.
    - No anchor with enough energy: stop and report.
 3. **Energy Refill popup** (`035`): tap ✕, rebuild demanding one more bolt.
 4. **Defeat** (`037`, `038`): no rematch, CONTINUE. **Keep Streak** (`039`): tap CONFIRM only if it says

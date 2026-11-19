@@ -286,6 +286,7 @@ def lobby_opponents(img):
 
 CARD_ICON_BAND = (0, 950, 2560, 120)   # the row of element icons at the cards' top-left corners
 SLOT_ICON_BAND = (0, 250, 1500, 100)   # same for the team slots at the top
+SLOT_XS = (88, 288, 490, 694, 894)     # slot icon x for 3 / 2 / 1 slot teams (centred, ~403 apart)
 BOLT_FILL = (20, 40)                   # hue range of a full (yellow) energy bolt
 
 
@@ -345,15 +346,17 @@ def _overlap(a, b):
     return i / len(a)
 
 
-def _yellow_blobs(img, region, min_area=60):
-    """Number of separate yellow (full energy bolt) blobs in region, lined up in one row."""
+def _yellow_blobs(img, region, min_area=60, bolt_shape=False):
+    """Number of separate yellow (full energy bolt) blobs in region, lined up in one row.
+    bolt_shape: only count blobs taller than wide (gold stage art behind FIGHT makes odd-shaped blobs)."""
     sub, _, _ = v._crop(img, region)
     if sub.size == 0:
         return 0
     mask = cv2.inRange(cv2.cvtColor(sub, cv2.COLOR_BGR2HSV), (BOLT_FILL[0], 110, 140), (BOLT_FILL[1], 255, 255))
     n, _, stats, cents = cv2.connectedComponentsWithStats(mask)
     # bolts are small and roughly square; wide blobs are button edges
-    ys = [cents[i][1] for i in range(1, n) if stats[i][4] >= min_area and stats[i][2] < 60 and stats[i][3] < 60]
+    ys = [cents[i][1] for i in range(1, n) if stats[i][4] >= min_area and stats[i][2] < 60 and stats[i][3] < 60
+          and (not bolt_shape or stats[i][3] >= 1.3 * stats[i][2])]
     if not ys:
         return 0
     row = np.median(ys)
@@ -438,12 +441,13 @@ class Slot:
 
 def team_slots(img):
     return [Slot((x, y), v.ocr_score(img, (x + 35, y - 28, 140, 56)), _element_at(img, x, y, 16, 24))
-            for x, y in _band_circles(img, SLOT_ICON_BAND, 26, 40)]
+            for x, y in _band_circles(img, SLOT_ICON_BAND, 26, 40)
+            if min(abs(x - sx) for sx in SLOT_XS) < 30]  # opponent art behind the slots can look like an icon
 
 
 def fight_energy_cost(img):
     """Number of bolts drawn above the FIGHT button (prize fights); None if there are none."""
-    n = _yellow_blobs(img, (2140, 20, 300, 60))
+    n = _yellow_blobs(img, (2140, 20, 300, 60), bolt_shape=True)
     return n if n >= 3 else None  # real cost plates show 3+ bolts; fewer is stray yellow
 
 

@@ -21,7 +21,7 @@ EXPECTED = {
     "025": "team_picker", "026": "prize_lobby", "027": "moves_popup",
     "028": "victory", "029": "victory", "030": "victory", "031": "victory",
     "032": "prize_lobby", "033": "prize_team", "034": "prize_team", "035": "energy_refill",
-    "036": "filter", "037": "defeat", "038": "defeat", "039": "keep_streak", "040": "prize_lobby", "041": "team_picker", "042": "team_picker", "043": "team_picker", "044": "event_map", "045": "team_picker", "046": "event_map", "047": "event_map", "048": "event_list", "049": "event_areas", "050": "event_list", "051": "cutscene", "052": "cutscene", "053": "event_map", "054": "event_areas", "055": "event_areas", "056": "offer", "057": "team_picker", "058": "modifiers", "059": "event_areas", "060": "event_areas", "061": "event_map", "062": "event_map", "063": "event_areas",
+    "036": "filter", "037": "defeat", "038": "defeat", "039": "keep_streak", "040": "prize_lobby", "041": "team_picker", "042": "team_picker", "043": "team_picker", "044": "event_map", "045": "team_picker", "046": "event_map", "047": "event_map", "048": "event_list", "049": "event_areas", "050": "event_list", "051": "cutscene", "052": "cutscene", "053": "event_map", "054": "event_areas", "055": "event_areas", "056": "offer", "057": "team_picker", "058": "modifiers", "059": "event_areas", "060": "event_areas", "061": "event_map", "062": "event_map", "063": "event_areas", "064": "event_prefight",
 }
 
 if __name__ == "__main__":
