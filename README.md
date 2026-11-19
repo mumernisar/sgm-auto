@@ -38,6 +38,17 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk   # stops a running bot
 Needs JDK 17+, the Android SDK (path in `android/local.properties`) and Python 3.10
 (`brew install python@3.10`). The build copies `bot/` and `templates/` into the app automatically.
 
+## Releases
+
+Download the latest APK from the repo's **Releases** page and open it on the tablet (or `adb install -r`).
+The version is in `VERSION` (`MAJOR.MINOR.PATCH`, or `-beta.N` for pre-releases). To publish one, from a clean
+`main` with `gh auth login` done:
+
+```sh
+./release.sh 0.1.0-beta.2   # tests, build, tag v0.1.0-beta.2, push, GitHub pre-release with the APK
+./release.sh 0.1.0          # a final release
+```
+
 ## Run from the Mac (development)
 
 ```sh

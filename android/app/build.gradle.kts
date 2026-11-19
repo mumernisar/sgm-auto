@@ -3,6 +3,14 @@ plugins {
     id("com.chaquo.python")
 }
 
+// Version lives in ../VERSION (bumped by ../release.sh): "MAJOR.MINOR.PATCH" or "MAJOR.MINOR.PATCH-beta.N".
+// versionCode always grows: a beta counts below its final release (0.1.0-beta.2 < 0.1.0 < 0.1.1-beta.1).
+val appVersion = rootProject.file("../VERSION").readText().trim()
+val appVersionCode = Regex("""(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?""").matchEntire(appVersion)!!.destructured
+    .let { (major, minor, patch, beta) ->
+        major.toInt() * 1_000_000 + minor.toInt() * 10_000 + patch.toInt() * 100 + (beta.toIntOrNull() ?: 99)
+    }
+
 android {
     namespace = "dev.umer.sgmbot"
     compileSdk = 36
@@ -11,8 +19,8 @@ android {
         applicationId = "dev.umer.sgmbot"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersion
         ndk { abiFilters += listOf("arm64-v8a") } // the tablet; keeps the APK small
     }
 

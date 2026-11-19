@@ -19,3 +19,5 @@ Working rules learned with this user:
 - Charging re-enables itself. `./charge.sh off` when the user asks; a run over adb does it every 5 min (the app doesn't).
 - The app runs Python 3.10: check with `/opt/homebrew/bin/python3.10 -m py_compile bot/*.py`.
 - Edit `bot/` in the repo root. `android/app/src/main/python/bot` is a generated copy.
+- Releases: `./release.sh <version>` (clean `main`, `gh` logged in). Betas `X.Y.Z-beta.N`, bump N per beta;
+  drop `-beta` for a final. Never reuse a version; the APK's versionCode comes from `VERSION`.
