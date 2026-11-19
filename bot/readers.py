@@ -63,11 +63,14 @@ def _red_mask(icon):
 
 
 def _has_slash(icon):
-    """Excluded icons (crossed out) get a red inner ring at radius ~40-48px; normal icons have none."""
+    """Excluded icons (crossed out) get a red inner ring at radius ~40-48px; normal icons have none.
+    An unmet requirement on the team picker flashes red all over (inside ~0.7 red), so the inside must stay
+    mostly clear (a real slash leaves it at ~0.1)."""
     n = icon.shape[0]
     yy, xx = np.mgrid[0:n, 0:n]
     d = np.hypot(xx - n / 2, yy - n / 2)
-    return _red_mask(icon)[(d >= 40) & (d < 48)].mean() > 0.3
+    red = _red_mask(icon)
+    return red[(d >= 40) & (d < 48)].mean() > 0.3 and red[d < 38].mean() < 0.3
 
 
 def _count(img, cx, cy):
@@ -175,13 +178,15 @@ def _percent(text):
 
 def list_card(img):
     """Centre card of the events / origin stories list; positions are relative to its PLAY button because
-    the card sits at different heights on the two lists."""
-    m = v.find(img, "play_text", (900, 880, 760, 320), 0.6, gray=True)
-    if not m:
+    the card sits at different heights on the two lists. The cards beside it have their own PLAY and '›', so
+    only a PLAY centred on the screen counts (None while the list is still sliding), and its '›' is looked
+    for in a tight box at its fixed offset (+235, -160)."""
+    m = v.find(img, "play_text", (1160, 880, 240, 320), 0.6, gray=True)
+    if not m or abs(m.center[0] - 1280) > 40:
         return None
     px, py = m.center
     pct = _percent(v.ocr_text(img, (px - 110, py - 152, 220, 62)))
-    arrow = v.find(img, "difficulty_next", (px + 120, py - 260, 260, 220), 0.7)
+    arrow = v.find(img, "difficulty_next", (px + 175, py - 225, 120, 130), 0.7)
     return ListCard((px, py), v.is_orange(img, (px - 140, py - 25, 280, 50)), pct, arrow.center if arrow else None)
 
 
@@ -207,6 +212,24 @@ def _percent_words(img, region, scale, psm=11):
     return out
 
 
+def chapter_arrows(img, area):
+    """« / » beside an area panel that has chapters ('MAPLECREST CHAPTER 2 30%'). Returns
+    {'prev': (x, y) or None, 'next': ...}: None = no arrow, or greyed out (first / last chapter)."""
+    tx, ty = area.tap
+    out = {}
+    for side, tpl, region in (("prev", "chapter_prev", (tx - 480, ty - 160, 300, 250)),
+                              ("next", "chapter_next", (tx + 180, ty - 160, 300, 250))):
+        m = v.find(img, tpl, region, 0.6)
+        out[side] = None
+        if m:
+            x, y = m.center
+            hsv = cv2.cvtColor(img[y - 30:y + 30, x - 30:x + 30], cv2.COLOR_BGR2HSV)
+            gold = (hsv[..., 0] >= 15) & (hsv[..., 0] <= 35) & (hsv[..., 1] > 100) & (hsv[..., 2] > 150)
+            if gold.mean() > 0.08:  # lit arrow ~0.18, greyed ~0
+                out[side] = m.center
+    return out
+
+
 def areas(img):
     """Area panels on the area overview ('DOWNTOWN 10%'); locked areas show a padlock instead of a %.
     The panel under the gold chevron (current area) is read at full resolution; the rest of the screen at
@@ -215,12 +238,21 @@ def areas(img):
     chev = v.find_gold(img, "area_chevron", (0, 0, 2560, 1300), 0.8)
     if chev:
         cx, cy = chev.center
-        # block mode reads a panel's text reliably; sparse mode (used for the whole screen) can miss it
-        for pct, x, y in _percent_words(img, (cx - 350, cy + 250, 900, 400), 1.0, psm=6)[:1]:
-            out.append(Area((int(x), int(y - 45)), pct, True))
+        # block mode reads a panel's text reliably; sparse mode (used for the whole screen) can miss it.
+        # The chevron bobs ~55px, and at its highest block mode sometimes reads nothing: try sparse too
+        for psm in (6, 11):
+            words = _percent_words(img, (cx - 350, cy + 250, 900, 400), 1.0, psm=psm)
+            if words:
+                pct, x, y = words[0]
+                out.append(Area((int(x), int(y - 45)), pct, True))
+                break
     for pct, x, y in _percent_words(img, None, 0.5):
         if not any(abs(a.tap[0] - x) < 150 and abs(a.tap[1] + 45 - y) < 80 for a in out):
             out.append(Area((int(x), int(y - 45)), pct, False))  # tap the panel's middle, above the %
+    if chev and not any(a.current for a in out):  # the panel % was only found by the whole-screen pass
+        below = [a for a in out if abs(a.tap[0] - cx) < 350 and 250 < a.tap[1] - cy < 700]
+        if below:
+            below[0].current = True
     return out
 
 

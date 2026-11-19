@@ -1,5 +1,5 @@
 """Read the event node map: nodes, current position, which nodes are reachable, their enemy scores."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
@@ -24,6 +24,7 @@ class Node:
     cleared: bool
     reachable: bool = False
     size: float = 1.0   # drawing scale of this node (map zoom x boss factor)
+    guess: bool = False  # only "reachable" because it's the nearest node to the marker (no line seen)
 
 
 @dataclass
@@ -31,6 +32,22 @@ class MapState:
     scale: float
     current: Node | None
     nodes: list
+    exits: list = field(default_factory=list)  # screen sides a blue (playable) path runs off: "above", ...
+
+
+# strips along the screen edges, clear of the header (top left), the area title and the % (bottom corners)
+EDGE_STRIPS = {"above": [(1160, 0, 1400, 60), (0, 170, 1160, 60)], "below": [(700, 1540, 1500, 60)],
+               "left": [(0, 230, 60, 1130)], "right": [(2500, 120, 60, 1300)]}
+
+
+def _exits(mask):
+    """Sides of the screen where a blue path line leaves the view: the playable node is that way."""
+    out = []
+    for side, boxes in EDGE_STRIPS.items():
+        px = sum(int(np.count_nonzero(mask[y:y + h, x:x + w])) for x, y, w, h in boxes)
+        if px > 150:  # a line crossing a 60px strip is several hundred pixels; specks are a few
+            out.append((px, side))
+    return [side for _, side in sorted(out, reverse=True)]
 
 
 def _best_scale(img):
@@ -46,9 +63,11 @@ def _best_scale(img):
 
 
 def looks_like_map(img):
-    """A node map without the event timer (story / origin maps): several strong skull badges."""
+    """A node map without the event timer (story / origin maps): several strong skull badges, or (zoomed in
+    close) one badge plus the player's marker."""
     for s in (1.2, 1.1, 1.0, 0.9, 0.8, 0.75, 0.7, 0.6):  # fewer zoom steps than read(): this runs on every unknown frame
-        if len(v.find_all(img, "map_skull", None, 0.8, scales=(s,))) >= 2:
+        n = len(v.find_all(img, "map_skull", None, 0.8, scales=(s,)))
+        if n >= 2 or (n == 1 and v.find(img, "map_marker", None, 0.8, scales=(s,))):
             return True
     return False
 
@@ -151,13 +170,14 @@ def read(img):
     badges = [(m, scale) for m in skulls] + [
         (m, scale * boss_size) for m in big
         if all(np.hypot(m.center[0] - k.center[0], m.center[1] - k.center[1]) > 60 * scale for k in skulls)]
-    checks = v.find_all(img, "map_check", None, 0.75, scales=(scale,))
+    # a boss node's ✓ is drawn at the boss size too
+    checks = {s: v.find_all(img, "map_check", None, 0.75, scales=(s,)) for s in {scale, scale * boss_size}}
     nodes = []
     for m, s in badges:
         sx, sy = m.center
         c = (int(sx + SKULL_TO_NODE[0] * s), int(sy + SKULL_TO_NODE[1] * s))
         # the ✓ sits at the node's right edge: ~100px right of a single node, up to ~340px for a double node
-        cleared = any(40 * s < k.center[0] - c[0] < 380 * s and abs(k.center[1] - c[1]) < 50 * s for k in checks)
+        cleared = any(40 * s < k.center[0] - c[0] < 380 * s and abs(k.center[1] - c[1]) < 50 * s for k in checks[s])
         nodes.append(Node(c, _label(img, c, s), cleared, size=s))
 
     current = None
@@ -177,14 +197,26 @@ def read(img):
         mx, my = marker.center
         ahead = [n for n in nodes if not n.cleared]
         if ahead:
-            min(ahead, key=lambda n: np.hypot(n.center[0] - mx, n.center[1] - my)).reachable = True
-    return MapState(scale, current, nodes)
+            n = min(ahead, key=lambda n: np.hypot(n.center[0] - mx, n.center[1] - my))
+            n.reachable = n.guess = True
+    return MapState(scale, current, nodes, _exits(mask))
 
 
-def choose(state, bad=()):
-    """Reachable, uncleared, not marked bad: lowest known score first, '???' nodes last."""
-    options = [n for n in state.nodes
-               if n.reachable and not n.cleared
-               and not any(b and np.hypot(n.center[0] - b[0], n.center[1] - b[1]) < 60 for b in bad)]
+def is_boss(state, node):
+    return node.size > state.scale * 1.1  # boss nodes are drawn BOSS_SCALE bigger
+
+
+def unfinished(state, bad=(), boss=True):
+    """Uncleared nodes not marked bad (reachable or not); boss=False leaves boss nodes out."""
+    return [n for n in state.nodes
+            if not n.cleared and (boss or not is_boss(state, n))
+            and not any(b and np.hypot(n.center[0] - b[0], n.center[1] - b[1]) < 60 for b in bad)]
+
+
+def choose(state, bad=(), boss=True, guess=True):
+    """Reachable, uncleared, not marked bad: lowest known score first, '???' nodes last.
+    boss=False skips boss nodes (they end the chapter, so they're played last); guess=False skips the
+    nearest-to-marker guess (worth zooming out / panning for a node with a visible line first)."""
+    options = [n for n in unfinished(state, bad, boss) if n.reachable and (guess or not n.guess)]
     options.sort(key=lambda n: (n.score is None, n.score or 0))
     return options[0] if options else None

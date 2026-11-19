@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 from bot import eventmap
 from bot import readers as r
@@ -46,6 +47,7 @@ if __name__ == "__main__":
     check("018 requirements", reqs("018"), [("character", "peacock", 1, False)])
     check("033 requirements", reqs("033"), [("element", "dark", 1, False), ("element", "air", 1, False)])
     check("036 requirements", reqs("036"), [("character", "eliza", 1, False), ("rarity", "bronze", None, True)])
+    check("057 unmet requirement flashing red", reqs("057"), [("character", "filia", None, False)])
 
     # tooltips
     check("045 variant tooltip", r.variant_from_tooltip(r.tooltip_text(load("045"))), "garish gremlin")
@@ -81,14 +83,35 @@ if __name__ == "__main__":
         node = eventmap.choose(st)
         check(f"{num} map", (st.scale, node and (node.score, node.center)), (scale, pick))
 
+    # 062: the only open node is the boss, but just as the marker guess (no line), and a blue line runs off the top
+    st = eventmap.read(load("062"))
+    check("062 boss is a guess", [n.guess for n in st.nodes if eventmap.is_boss(st, n)], [True])
+    check("062 blue line exits", st.exits, ["above"])
+    check("009 blue line exits", eventmap.read(load("009")).exits, [])
+
+    # boss nodes are played last: (bosses on the map, other unfinished nodes left)
+    for num, want in [("044", (1, 10)), ("046", (1, 3)), ("047", (1, 0)), ("009", (0, 5)), ("062", (1, 0))]:
+        st = eventmap.read(load(num))
+        check(f"{num} boss last", (sum(eventmap.is_boss(st, n) for n in st.nodes),
+                                   len(eventmap.unfinished(st, boss=False))), want)
+
     # area overview: (percent, current)
-    for num, want in [("049", [(10, True)]), ("054", [(0, True)]), ("055", [(0, True), (100, False)])]:
+    for num, want in [("059", [(30, True)]), ("060", [(70, True)]), ("049", [(10, True)]), ("054", [(0, True)]), ("055", [(0, True), (100, False)])]:
         check(f"{num} areas", [(a.percent, a.current) for a in r.areas(load(num))], want)
+
+    # chapter arrows beside the current area: (« lit, » lit); greyed = first / last chapter, none = no chapters
+    for num, want in [("059", (True, True)), ("060", (False, True)), ("049", (False, False))]:
+        img = load(num)
+        arrows = r.chapter_arrows(img, next(a for a in r.areas(img) if a.current))
+        check(f"{num} chapter arrows", (bool(arrows["prev"]), bool(arrows["next"])), want)
 
     # events / origin stories list: (percent, playable, has › arrow)
     for num, want in [("048", (0, False, True)), ("050", (3, True, True))]:
         c = r.list_card(load(num))
         check(f"{num} list card", (c.percent, bool(c.playable), c.next_arrow is not None), want)
+    # list slid off-centre: the neighbouring card's PLAY / '›' must not be taken for the selected one
+    shifted = cv2.warpAffine(load("050"), np.float32([[1, 0, 330], [0, 1, 0]]), (2560, 1600))
+    check("050 shifted list card", r.list_card(shifted), None)
 
     print(f"\n{len(failures)} failures" + (": " + ", ".join(failures) if failures else ""))
     sys.exit(1 if failures else 0)

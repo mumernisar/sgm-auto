@@ -6,6 +6,7 @@ CHECKS = [
     ("cutscene",       "skip_btn",           (1050, 1300, 460, 240), 0.75),
     # paid offers can pop over any screen (even VICTORY): only ever close them
     ("offer",          "offer_hdr",          (500, 250, 1500, 300), 0.75),
+    ("modifiers",      "modifiers_hdr",      (850, 200, 860, 260), 0.75),
     ("keep_streak",    "keep_streak_hdr",    (1000, 440, 560, 200), 0.75),
     ("energy_refill",  "energy_refill_hdr",  (1050, 500, 460, 200), 0.75),
     ("moves_popup",    "moves_popup_fight",  (1250, 980, 500, 260), 0.8),

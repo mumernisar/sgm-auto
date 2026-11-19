@@ -4,7 +4,7 @@ Skullgirls Mobile automation for event maps, story / origin events and prize fig
 tablet (2560x1600 landscape, Android 11+, arm64, Magisk). It reads the screen with OpenCV and Tesseract (no LLM, no network) and follows the rules in `FLOW.md`.
 
 - **Using it:** the Android app (`android/`) runs everything on the tablet behind a floating control panel.
-- **Developing it:** the same Python package (`bot/`) runs from the Mac over adb, with tests against 56
+- **Developing it:** the same Python package (`bot/`) runs from the Mac over adb, with tests against 62
   reference screenshots.
 
 **Setting it up on your own device** (requirements, root, other screens, the plan for no root): `docs/SETUP.md`.

@@ -23,6 +23,9 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
 - Taps get a little random jitter and timing; occasionally a longer idle.
 - **Offers** ("LIMITED TIME OFFER", can pop over VICTORY, `056`): tap ✕, never GET NOW.
 - **Cutscenes** (`051`, `052`, also mid-fight): tap SKIP.
+- **Fight modifiers** popup (`058`, can open from a map node tap): tap ✕. It counts as a node tap that didn't open.
+- During an event fight the status line shows the tries left on that node: `[fight +++]`, each loss turns a
+  `+` into `✗` (`++✗`, `+✗✗`).
 - **Auto mode** (default): prize screens switch to prize handling, maps/areas/lists/cutscenes to event; shared
   screens keep the last mode; a defeat with REMATCH is always event.
 
@@ -34,9 +37,14 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
      extend right, triangle nodes extend down), or an uncleared node with a bright revealed portrait.
      If none, step one node on from the marker (its line is often under the marker).
    - Cleared = green ✓ at the node's right edge.
-   - Pick the lowest score first; `???` last. Nothing playable in view: **zoom out first** (two-finger pinch
-     via root sendevent, up to twice), then pan (up, down, left, right). A playable node at the screen edge is
-     panned toward the centre before tapping. A node tap that doesn't open: pan after 3, skip after 6.
+   - Pick the lowest score first; `???` last. **The boss** (bigger node) **comes last**: it ends the chapter
+     and the game moves on, so it's only fought when no other uncleared node is in view, or a full search found
+     nothing else playable.
+   - Nothing playable with a visible line: **zoom out first** (two-finger pinch via root sendevent, up to
+     twice), then take the node next to the marker if there is one, else pan around the 8 views next to the
+     start (below, below-right, right, above-right, above, above-left, left, below-left). A playable node at
+     the screen edge is panned toward the centre before tapping. A node tap that doesn't open: nudge the map
+     (a different direction each time) after 3, skip after 6 (after 2 for the marker guess).
    - Story maps have no TIME REMAINING: recognised by their skull badges (zoom up to 1.25x).
 2. **Pre-fight** (`010`, `018`): if FIGHT is orange, fight. **The team is only touched when FIGHT is grey.**
    The user sets event teams by hand for synergy, so never rebuild a working team, not even after losses.
@@ -50,9 +58,13 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
 3. **Defeat** (`017`): REMATCH up to 3 losses in a row on a node, then QUIT, back to the map, mark the
    node unusable.
 4. **Events / Origin Stories list** (`048`, `050`): shown difficulty below 100% and PLAY orange → PLAY;
-   100% or PLAY grey → › to the next difficulty; no › left → stop.
+   100% or PLAY grey → › to the next difficulty; no › left → stop. Only the centred card counts (the cards
+   beside it have their own PLAY and ›): wait while the list is still sliding.
 5. **Area overview** (`049`, `054`, `055`, story events): open the area under the gold chevron (matched by its
    gold shape, any background) if below 100%, else another area below 100% (pan to look); all 100% → back.
+   - Areas with chapters (« MAPLECREST CHAPTER 2 » , `059`, `060`): finish chapters **in order**. A boss win
+     unlocks the next chapter and the game jumps there even if the earlier one isn't at 100%, so step « back
+     to the first chapter (« greyed out), then » forward to the first chapter below 100% and open it.
 
 ## Requirements and the team filter (both modes)
 

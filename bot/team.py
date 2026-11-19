@@ -41,6 +41,8 @@ class Filter:
         if c.look() == "filter":
             return
         for attempt in range(3):
+            if c.screen == "filter":  # opened late (after wait_for gave up)
+                break
             if c.screen != "team_picker":
                 c.settle(0.8)
                 continue

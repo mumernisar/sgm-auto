@@ -6,7 +6,7 @@ from .core import Ctx, Stop
 from .modes import AutoMode, EventMode, PrizeMode
 
 UNKNOWN_GRACE = 40  # seconds of unrecognised screens (loading, animations) before stopping
-SCREENS = ["offer", "cutscene", "keep_streak", "energy_refill", "moves_popup", "paused", "victory", "defeat", "filter", "team_picker",
+SCREENS = ["offer", "modifiers", "cutscene", "keep_streak", "energy_refill", "moves_popup", "paused", "victory", "defeat", "filter", "team_picker",
            "fight", "prize_lobby", "prize_team", "event_prefight", "event_map", "event_list", "event_areas"]
 
 
@@ -44,7 +44,8 @@ def run(dev, cfg):
 
             screen = ctx.look()
             if screen != last_screen:
-                ctx.log(f"[{screen}]")
+                lives = mode.lives() if screen == "fight" else ""
+                ctx.log(f"[{screen} {lives}]" if lives else f"[{screen}]")
                 last_screen = screen
 
             if screen == "unknown":
