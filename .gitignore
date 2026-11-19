@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+logs/
+config.json
+templates/_sheet.png
+
+# personal notes made while snapping screens (labels stay in the filenames)
+shots/notes.txt

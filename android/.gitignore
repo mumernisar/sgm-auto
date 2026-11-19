@@ -1,0 +1,7 @@
+.gradle/
+build/
+app/build/
+local.properties
+# copied from the repo root by the syncBot / syncTemplates tasks
+app/src/main/python/bot/
+app/src/main/assets/templates/
