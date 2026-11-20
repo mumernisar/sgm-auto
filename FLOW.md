@@ -18,7 +18,7 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
   Never FAVORITE.
 - "Missing Moves or Guest Star" popup (`027`): tap FIGHT!, never EQUIP.
 - Never spend gems, use energy refills or watch ads.
-- In the app, a run that stops by itself (finished, a stop rule, an error) plays the tablet's "Antares" sound and shows a
+- In the app, a run that stops by itself (finished, a stop rule, an error) plays the "Antares" sound (from AOSP, bundled) and shows a
   notification with the reason; stopping with ■ is silent.
 - Unknown screen for 40s: save a screenshot and stop. Errors are logged with a full traceback and a
   screenshot (`logs/bot.log`, `logs/debug/`). No LLM is involved.
