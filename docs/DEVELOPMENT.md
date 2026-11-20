@@ -165,8 +165,10 @@ Setting up or porting to another device: `docs/SETUP.md`.
     recent lines and the mode radio and **pauses the bot while open**. Draggable by the status text. Docked at
     x=150 px, top (over the game's home/chat buttons, which the bot never needs). When a run ends by itself
     (done, a stop rule, an error) it posts a "SGM bot stopped" notification with the last `***` line on the
-    `run_end` channel, which plays the app's own chime (`res/raw/run_end.wav`, made by `tools/make_sound.py`).
-    ■ ends a run silently. A channel's sound is fixed once created: give it a new id to change the sound.
+    `run_end_antares` channel. Its sound is the tablet's built-in "Antares", looked up by title in the media
+    library (not bundled: the device's sounds aren't ours to ship in a public repo); devices without it get the
+    app's chime (`res/raw/run_end.wav`, made by `tools/make_sound.py`). ■ ends a run silently. A channel's
+    sound is fixed once created: give it a new id to change the sound.
   - `MainActivity`: overlay permission and show/hide buttons.
 - Python side: `app_main.py` (`start(mode, listener)`, `pause`, `resume`, `stop`) runs `runner.run` in a thread
   with `device.connect("app")`. `pytesseract.py` stands in for the real package.

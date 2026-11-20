@@ -87,6 +87,7 @@ class EventMode(Common):
         self.retreat = False      # walk back to the map from the pre-fight screen
         self.counted = False      # result of the current match already counted
         self.built = False        # team already built for the current node
+        self.swept = False        # a full sweep of this map found nothing but the boss (kept across retries)
 
     # finger swipes that show more of the map in one direction
     SHOW = {"below": ((1280, 1150), (1280, 550)), "above": ((1280, 450), (1280, 1250)),
@@ -109,7 +110,7 @@ class EventMode(Common):
         self.retreat = False
         node = state = None
         zoomed_out = edge_pans = followed = leg = steps = 0
-        searched = False  # one full sweep found nothing but the boss: it may be fought now
+        searched = self.swept  # one full sweep found nothing but the boss: it may be fought now
         zoom = None       # map zoom, fixed once zooming out is over (pans don't change it)
         while True:
             state = eventmap.read(c.img, zoom)
@@ -119,7 +120,7 @@ class EventMode(Common):
             # one), so every other node comes first
             node = eventmap.choose(state, self.bad, boss=False, guess=False)
             # maps open zoomed in: before anything else, zoom out (twice at most, not below ~0.6)
-            if not node and zoomed_out < 2 and state.scale > 0.65:
+            if not node and not searched and zoomed_out < 2 and state.scale > 0.65:
                 zoomed_out += 1
                 c.log(f"  nothing playable in view at zoom {state.scale} -> zooming out")
                 self.ctx.dev.pinch((1280, 800), 1200, 350, why="zoom out")
@@ -130,6 +131,7 @@ class EventMode(Common):
             if not node and searched:
                 node = eventmap.choose(state, self.bad)
                 if node:
+                    self.swept = True
                     c.log("  the sweep found nothing but the boss -> fighting it")
             # a playable node at the screen edge (under the header, number hidden, hard to tap): drag the
             # map so it moves toward the centre — the swipe starts mid-map, a swipe on the header does nothing
@@ -179,11 +181,16 @@ class EventMode(Common):
         if not node:
             raise Stop("no usable node left on this map (looked around by panning)")
         self.node, self.node_losses, self.counted, self.built = node.center, 0, False, False
-        c.tap(*node.center, f"node {node.score if node.score is not None else '???'}")
         # every tap counts until a pre-fight screen opens (which resets it): a tap that only opens the node's
         # FIGHT MODIFIERS popup (closed by the main loop) must not retry the same node forever
         self.map_taps = getattr(self, "map_taps", 0) + 1
-        opened = c.wait_change("event_map", timeout=4)
+        # the game swallows the first tap after the map was swiped (even seconds later), so a tap that opens
+        # nothing is repeated once right away
+        for attempt in range(2):
+            c.tap(*node.center, f"node {node.score if node.score is not None else '???'}" + (" (again)" if attempt else ""))
+            opened = c.wait_change("event_map", timeout=4)
+            if opened:
+                break
         if opened and opened != "modifiers":
             return
         # a guessed node (no line seen) is given up on sooner: it's often just not playable yet
@@ -207,7 +214,7 @@ class EventMode(Common):
         if self.retreat:
             self.back("back to map")
             return
-        self.counted, self.map_taps = False, 0
+        self.counted, self.map_taps, self.swept = False, 0, False
         if c.settle(1.2) not in ("event_prefight", "team_picker"):
             return  # moved on while settling; the main loop will handle the new screen
         reqs = r.requirements(c.img)
@@ -249,7 +256,7 @@ class EventMode(Common):
                 raise Stop("events list: can't find the selected card's PLAY button")
             c.log(f"  list: {card.percent}% {'playable' if card.playable else 'not playable'}")
             if card.playable and (card.percent is None or card.percent < 100):
-                self.bad, self.retreat = [], False  # new map / area
+                self.bad, self.retreat, self.swept = [], False, False  # new map / area
                 c.tap(*card.play, "PLAY")
                 c.wait_change("event_list")
                 return
@@ -275,7 +282,7 @@ class EventMode(Common):
                 found = [a for a in r.areas(c.img) if not a.current]  # every chapter is done
             todo = sorted((a for a in found if a.percent < 100), key=lambda a: not a.current)
             if todo:
-                self.bad, self.retreat = [], False
+                self.bad, self.retreat, self.swept = [], False, False
                 c.tap(*todo[0].tap, f"open area {todo[0].percent}%")
                 c.wait_change("event_areas")
                 return
@@ -315,7 +322,7 @@ class EventMode(Common):
                 return False
             c.log(f"  chapter: {area.percent}%")
             if area.percent < 100:
-                self.bad, self.retreat = [], False
+                self.bad, self.retreat, self.swept = [], False, False
                 c.tap(*area.tap, f"open chapter {area.percent}%")
                 c.wait_change("event_areas")
                 return True

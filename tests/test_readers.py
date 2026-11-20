@@ -91,7 +91,7 @@ if __name__ == "__main__":
     check("009 blue line exits", eventmap.read(load("009")).exits, [])
 
     # boss nodes are played last: (bosses on the map, other unfinished nodes left)
-    for num, want in [("044", (1, 10)), ("046", (1, 3)), ("047", (1, 0)), ("009", (0, 5)), ("062", (1, 0))]:
+    for num, want in [("044", (1, 10)), ("046", (1, 3)), ("047", (1, 0)), ("009", (0, 5)), ("062", (1, 0)), ("068", (1, 0))]:
         st = eventmap.read(load(num))
         check(f"{num} boss last", (sum(eventmap.is_boss(st, n) for n in st.nodes),
                                    len(eventmap.unfinished(st, boss=False))), want)

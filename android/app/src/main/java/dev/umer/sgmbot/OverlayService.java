@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.database.Cursor;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.graphics.Color;
@@ -15,6 +16,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -39,7 +41,8 @@ import java.util.ArrayDeque;
  */
 public class OverlayService extends Service implements BotListener {
     private static final String CHANNEL = "overlay";
-    private static final String CHANNEL_END = "run_end"; // own chime (res/raw/run_end.wav)
+    private static final String CHANNEL_END = "run_end_antares"; // a channel's sound is fixed: new sound, new id
+    private static final String END_SOUND = "Antares";            // the tablet's own notification sound, by title
     private static final int MAX_LINES = 10;
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -294,13 +297,29 @@ public class OverlayService extends Service implements BotListener {
         getSystemService(NotificationManager.class).notify(2, n);
     }
 
+    /** A built-in sound by its title (it isn't bundled: the tablet's sounds aren't ours to ship), or null. */
+    private Uri systemSound(String title) {
+        Uri base = MediaStore.Audio.Media.INTERNAL_CONTENT_URI;
+        try (Cursor c = getContentResolver().query(base, new String[]{MediaStore.Audio.Media._ID},
+                MediaStore.Audio.Media.TITLE + "=?", new String[]{title}, null)) {
+            if (c != null && c.moveToFirst()) {
+                return Uri.withAppendedPath(base, String.valueOf(c.getLong(0)));
+            }
+        } catch (RuntimeException e) {
+            // no access to the media library: fall back to the bundled chime
+        }
+        return null;
+    }
+
     private void startInForeground() {
         NotificationManager nm = getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Overlay", NotificationManager.IMPORTANCE_LOW));
         // a channel's sound is fixed once created: change the id to change the sound
+        nm.deleteNotificationChannel("run_end"); // the first version (bundled chime only)
         NotificationChannel end = new NotificationChannel(CHANNEL_END, "Run ended", NotificationManager.IMPORTANCE_HIGH);
         end.setDescription("A run stopped by itself: finished, a stop rule or an error");
-        end.setSound(Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.run_end),
+        Uri sound = systemSound(END_SOUND);
+        end.setSound(sound != null ? sound : Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.run_end),
                 new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
         nm.createNotificationChannel(end);
