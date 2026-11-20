@@ -18,6 +18,8 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
   Never FAVORITE.
 - "Missing Moves or Guest Star" popup (`027`): tap FIGHT!, never EQUIP.
 - Never spend gems, use energy refills or watch ads.
+- In the app, a run that stops by itself (finished, a stop rule, an error) plays the app's chime and shows a
+  notification with the reason; stopping with ■ is silent.
 - Unknown screen for 40s: save a screenshot and stop. Errors are logged with a full traceback and a
   screenshot (`logs/bot.log`, `logs/debug/`). No LLM is involved.
 - Over adb from the Mac only: charging is turned off every 5 minutes (`batt_charge_en`; it re-enables itself).

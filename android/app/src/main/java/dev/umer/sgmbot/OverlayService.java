@@ -6,6 +6,8 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.media.AudioAttributes;
+import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.Typeface;
@@ -37,6 +39,7 @@ import java.util.ArrayDeque;
  */
 public class OverlayService extends Service implements BotListener {
     private static final String CHANNEL = "overlay";
+    private static final String CHANNEL_END = "run_end"; // own chime (res/raw/run_end.wav)
     private static final int MAX_LINES = 10;
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -53,6 +56,8 @@ public class OverlayService extends Service implements BotListener {
     private boolean running;
     private boolean paused;
     private boolean pausedByPanel;
+    private boolean stopRequested; // ■ pressed: the run ends without the chime
+    private String lastNotice;     // the latest '*** ...' line: why the run ended
 
     @Override
     public void onCreate() {
@@ -84,6 +89,10 @@ public class OverlayService extends Service implements BotListener {
     @Override
     public void onLine(String line) {
         main.post(() -> {
+            int notice = line.indexOf("*** ");
+            if (notice >= 0) {
+                lastNotice = line.substring(notice + 4);
+            }
             lines.addLast(line);
             while (lines.size() > MAX_LINES) {
                 lines.removeFirst();
@@ -99,6 +108,9 @@ public class OverlayService extends Service implements BotListener {
         main.post(() -> {
             running = false;
             paused = false;
+            if (!stopRequested) {
+                notifyRunEnded();
+            }
             refresh();
         });
     }
@@ -108,6 +120,8 @@ public class OverlayService extends Service implements BotListener {
     private void onPlayPause() {
         if (!running) {
             lines.clear();
+            stopRequested = false;
+            lastNotice = null;
             running = bot.callAttr("start", mode, this).toBoolean();
             paused = false;
         } else if (paused) {
@@ -122,6 +136,7 @@ public class OverlayService extends Service implements BotListener {
 
     private void onStop() {
         if (running) {
+            stopRequested = true;
             bot.callAttr("stop");
             status.setText("stopping…");
         }
@@ -267,9 +282,28 @@ public class OverlayService extends Service implements BotListener {
         }
     }
 
+    /** The run ended by itself (done, a stop rule, an error): chime and say why. */
+    private void notifyRunEnded() {
+        Notification n = new Notification.Builder(this, CHANNEL_END)
+                .setContentTitle("SGM bot stopped")
+                .setContentText(lastNotice != null ? lastNotice : "the run ended")
+                .setStyle(new Notification.BigTextStyle().bigText(lastNotice != null ? lastNotice : "the run ended"))
+                .setSmallIcon(android.R.drawable.ic_media_pause)
+                .setAutoCancel(true)
+                .build();
+        getSystemService(NotificationManager.class).notify(2, n);
+    }
+
     private void startInForeground() {
         NotificationManager nm = getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Overlay", NotificationManager.IMPORTANCE_LOW));
+        // a channel's sound is fixed once created: change the id to change the sound
+        NotificationChannel end = new NotificationChannel(CHANNEL_END, "Run ended", NotificationManager.IMPORTANCE_HIGH);
+        end.setDescription("A run stopped by itself: finished, a stop rule or an error");
+        end.setSound(Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.run_end),
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+        nm.createNotificationChannel(end);
         Notification n = new Notification.Builder(this, CHANNEL)
                 .setContentTitle("SGM bot overlay")
                 .setContentText("Control panel is showing")
