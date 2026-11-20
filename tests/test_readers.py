@@ -49,6 +49,10 @@ if __name__ == "__main__":
     check("036 requirements", reqs("036"), [("character", "eliza", 1, False), ("rarity", "bronze", None, True)])
     check("057 unmet requirement flashing red", reqs("057"), [("character", "filia", None, False)])
 
+    # auto battle: speed badge above the brain (1x and 3x look alike), or the bare brain when off
+    for num, want in [("011", "3x"), ("012", "3x"), ("013", "off"), ("065", "1x"), ("066", "2x"), ("067", "off")]:
+        check(f"{num} auto battle", r.auto_state(load(num)), want)
+
     # tooltips
     check("045 variant tooltip", r.variant_from_tooltip(r.tooltip_text(load("045"))), "garish gremlin")
     check("034 OR tooltip", r.tooltip_text(load("034")), "Must have a Dark or Air Fighter on your team!")
@@ -71,10 +75,6 @@ if __name__ == "__main__":
     check("042 slots (no phantom from opponent art)", [s.icon[0] for s in r.team_slots(load("042"))], [88, 492, 894])
     check("041 cards", [(c.score, c.energy) for c in r.picker_cards(load("041"), with_energy=True, with_character=False)],
           [(172, 10), (173, 10), (173, 10), (173, 10), (173, 10)])
-
-    # fight: auto battle state
-    for num, want in [("011", "on"), ("012", "on"), ("013", "off")]:
-        check(f"{num} auto", r.auto_state(load(num)), want)
 
     # event maps: zoom and the node the bot would tap (score, centre)
     for num, scale, pick in [("008", 0.75, (640, (1089, 1306))), ("009", 1.0, (640, (1020, 980))),

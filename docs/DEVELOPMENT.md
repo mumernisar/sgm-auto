@@ -104,9 +104,12 @@ energy refill, missing moves, paused). Then:
   playable too. Failing both, the node nearest the marker. Zoom is the skull scale with the best match (0.5–1.25), and bosses use
   1.15–1.5x of that.
 - **Map choice order** (`EventMode.event_map`): a node with a visible blue line (boss excluded) → zoom out
-  (up to twice) → the node next to the marker (`Node.guess`, dropped after 2 failed taps) → the boss, only if
-  it isn't a guess and nothing else uncleared is in view → pan: first toward a blue line that runs off the
-  screen (`MapState.exits`), then the 8 views around the start → whatever is playable. A tap only counts as
+  (up to twice) → the node next to the marker (`Node.guess`, dropped after 2 failed taps) → pan toward a blue
+  line that runs off the screen (`MapState.exits`, up to 3) → sweep `SWEEP_ORDER` (up, left, down, right, up),
+  each direction until `vision.changed` between frames is < `STILL` % (the map's edge: backgrounds don't
+  move with the nodes, so it counts changed pixels rather than measuring a shift) or 3 swipes → a second
+  sweep that also accepts the boss. After zooming out the scale is passed to `eventmap.read(img, scale)`:
+  auto-detecting it fails when only a boss is in view (its bigger badge is taken for the zoom). A tap only counts as
   opened when the pre-fight screen shows (`map_taps` resets there), so a popup can't make it loop.
 - **Boss nodes** are the same skull badge drawn ~1.35x bigger, and so is their ✓: checkmarks are matched at
   both sizes.

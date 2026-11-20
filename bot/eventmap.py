@@ -115,6 +115,8 @@ def _label(img, c, s):
     import pytesseract
     bx, by, bw, bh = (int(o * s) for o in SCORE_BOX)
     sub, _, _ = v._crop(img, (c[0] + bx, c[1] + by, bw, bh))
+    if sub.shape[0] < 10 or sub.shape[1] < 10:  # label below the screen's edge
+        return None
     k = 3
     g = cv2.resize(cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY), None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC)
     H, W = g.shape
@@ -156,8 +158,13 @@ def _label(img, c, s):
     return v.parse_score(pytesseract.image_to_string(out, config="--psm 7 -c tessedit_char_whitelist=0123456789,.k"))
 
 
-def read(img):
-    scale, skulls = _best_scale(img)
+def read(img, scale=None):
+    """scale: the map's known zoom (panning doesn't change it). Without it the zoom is detected, which goes wrong
+    when only a boss is in view (its bigger badge is taken for the zoom and the boss for a normal node)."""
+    if scale:
+        skulls = v.find_all(img, "map_skull", None, 0.8, scales=(scale,))
+    else:
+        scale, skulls = _best_scale(img)
     if not skulls:
         return MapState(scale, None, [])
     # boss nodes: same badge, drawn bigger

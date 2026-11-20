@@ -453,10 +453,17 @@ def fight_energy_cost(img):
 
 # --- fight -----------------------------------------------------------------------------------------
 
+AUTO_BRAIN = (1280, 1500)  # the brain button: turns auto battle (Brain Drain) on / off
+AUTO_BADGE = (1275, 1370)  # the speed badge above it (only shown while auto is on): steps 1x / 2x / 3x
+
+
 def auto_state(img):
-    """'on' (3x badge above brain), 'off' (brain, no badge) or None (not visible)."""
-    if v.find(img, "auto_on_badge", (1150, 1250, 260, 200), 0.75):
-        return "on"
+    """'1x' / '2x' / '3x' (auto on: speed badge above the lit brain), 'off' (dark brain, no badge) or None.
+    The badges look alike (1x vs 3x scores ~0.8), so the best of the three wins."""
+    badges = [(m.score, n) for n in ("1x", "2x", "3x")
+              if (m := v.find(img, f"auto_{n}", (1150, 1250, 260, 200), 0.75))]
+    if badges:
+        return max(badges)[1]
     if v.find(img, "auto_brain", (1150, 1380, 260, 220), 0.7):
         return "off"
     return None

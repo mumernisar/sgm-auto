@@ -20,6 +20,7 @@ class Config:
     long_pause_chance: float = 0.04     # occasionally idle a bit longer
     long_pause: tuple = (4.0, 9.0)
     tap_jitter: int = 12
+    auto_speed: str = "3x"              # auto battle speed kept during fights: "1x" | "2x" | "3x"
 
     # event mode
     max_event_losses: int = 3           # REMATCH up to this many losses per node, then QUIT

@@ -172,6 +172,16 @@ def is_orange(img, region):
     return 5 <= h <= 35 and s > 100 and v > 120
 
 
+def changed(a, b, region=(0, 240, 2560, 1360)):
+    """Share (%) of pixels that changed clearly from frame a to frame b (1/4-size grey copy). Tells a map pan from
+    a pan at the map's edge: map backgrounds stay put while the node layer slides, so the picture as a whole
+    doesn't shift; a pan changes 7-23% of pixels, pulsing nodes < 0.1% and an edge bounce < 1.8%."""
+    def prep(img):
+        sub, _, _ = _crop(img, region)
+        return cv2.resize(cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY), None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+    return float(np.mean(cv2.absdiff(prep(a), prep(b)) > 30) * 100)
+
+
 def color_fraction(img, region, lo, hi):
     """Fraction of pixels in region whose HSV lies in [lo, hi]."""
     sub, _, _ = _crop(img, region)

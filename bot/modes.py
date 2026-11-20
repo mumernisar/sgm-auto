@@ -18,8 +18,12 @@ class Common:
         self.ctx = ctx
         self.filt = team.Filter(ctx)
         self.wins = self.losses = 0
+        self.auto_seen = None     # auto battle state last logged in this fight
+        self.auto_taps = 0        # brain taps in this fight
 
     def handler(self, screen):
+        if screen != "fight":
+            self.auto_seen, self.auto_taps = None, 0
         return getattr(self, screen, None)
 
     def lives(self):
@@ -27,11 +31,25 @@ class Common:
         return ""
 
     def fight(self):
-        state = r.auto_state(self.ctx.img)
+        """Keep auto battle on at cfg.auto_speed: off -> tap the brain; on at another speed -> tap the speed
+        badge (it steps 1x / 2x / 3x). Read again on the next look; up to 4 taps per fight."""
+        c = self.ctx
+        state, want = r.auto_state(c.img), c.cfg.auto_speed
+        if state != self.auto_seen:
+            self.auto_seen = state
+            c.log(f"  auto battle: {state or 'button not visible'}")
+        if state is None or state == want:
+            return
+        if self.auto_taps >= 4:
+            if self.auto_taps == 4:
+                self.auto_taps += 1
+                c.log(f"  ! auto battle stays at {state} after 4 taps (want {want}) -- leaving it")
+            return
+        self.auto_taps += 1
         if state == "off":
-            m = v.find(self.ctx.img, "auto_brain", (1150, 1380, 260, 220), 0.7)
-            self.ctx.tap(*m.center, "auto battle on", jitter=6)
-            self.ctx.log("  auto battle turned on")
+            c.tap(*r.AUTO_BRAIN, "auto battle on", jitter=6)
+        else:
+            c.tap(*r.AUTO_BADGE, f"auto speed {state} -> {want}", jitter=6)
 
     def offer(self):
         """Shop offer popup: tap its ✕ — never GET NOW."""
@@ -73,8 +91,13 @@ class EventMode(Common):
     # finger swipes that show more of the map in one direction
     SHOW = {"below": ((1280, 1150), (1280, 550)), "above": ((1280, 450), (1280, 1250)),
             "right": ((1900, 800), (700, 800)), "left": ((700, 800), (1900, 800))}
-    # when nothing playable is visible: walk the 8 views around the start (below, below-right, right, ...)
-    PANS = ["below", "right", "above", "above", "left", "left", "below", "below"]
+    # search sweep when nothing playable is visible: big swipes up to the map's edge, then left, down, right and
+    # up again (around the map's border), each direction until the map stops moving
+    SWEEP = {"above": ((1280, 380), (1280, 1380)), "below": ((1280, 1380), (1280, 380)),
+             "left": ((450, 800), (2150, 800)), "right": ((2150, 800), (450, 800))}
+    SWEEP_ORDER = ("above", "left", "below", "right", "above")
+    SWEEP_STEPS = 3   # swipes per direction at most
+    STILL = 3.0       # a pan that changes less than this % of pixels hit the map's edge (edge bounce < 1.8%)
 
     @staticmethod
     def _at_edge(node):
@@ -85,10 +108,12 @@ class EventMode(Common):
         c = self.ctx
         self.retreat = False
         node = state = None
-        zoomed_out = pans = edge_pans = followed = 0
+        zoomed_out = edge_pans = followed = leg = steps = 0
+        searched = False  # one full sweep found nothing but the boss: it may be fought now
+        zoom = None       # map zoom, fixed once zooming out is over (pans don't change it)
         while True:
-            state = eventmap.read(c.img)
-            if not state.nodes:
+            state = eventmap.read(c.img, zoom)
+            if not state.nodes and not zoom:  # (mid-sweep, a view can show no nodes at all)
                 raise Stop("couldn't read the event map (zoom it so the node numbers are readable)")
             # best first: a node with a visible line; the boss ends the chapter (the game moves on to the next
             # one), so every other node comes first
@@ -100,17 +125,12 @@ class EventMode(Common):
                 self.ctx.dev.pinch((1280, 800), 1200, 350, why="zoom out")
                 c.settle(1.0)
                 continue
-            searched = pans == len(self.PANS)
             if not node:  # the node next to the marker (its line is often hidden under the marker)
                 node = eventmap.choose(state, self.bad, boss=False)
-            if not node:
-                boss = eventmap.choose(state, self.bad)
-                # take the boss once nothing else is left in view, or the search below found nothing else.
-                # A boss that's only the marker guess (no line seen) waits for the search: a blue line running
-                # off screen usually leads to an unfinished node first
-                if boss and (searched or (not boss.guess and not eventmap.unfinished(state, self.bad, boss=False))):
-                    c.log("  only the boss is left -> fighting it")
-                    node = boss
+            if not node and searched:
+                node = eventmap.choose(state, self.bad)
+                if node:
+                    c.log("  the sweep found nothing but the boss -> fighting it")
             # a playable node at the screen edge (under the header, number hidden, hard to tap): drag the
             # map so it moves toward the centre — the swipe starts mid-map, a swipe on the header does nothing
             if node and self._at_edge(node) and edge_pans < 2:
@@ -120,18 +140,38 @@ class EventMode(Common):
                 c.swipe((1280 - dx // 2, 800 - dy // 2), (1280 + dx // 2, 800 + dy // 2), 700, "pan node into view")
                 c.look()
                 continue
-            if node or searched:
+            if node:
                 break
-            # a blue (playable) path running off the screen points the way: follow it before the fixed walk
-            if state.exits and followed < 3:
+            if leg == len(self.SWEEP_ORDER):
+                if searched:  # second sweep, boss allowed: nothing at all
+                    break
+                # the whole map was swept without another playable node (the rest are locked): sweep again,
+                # this time taking the boss wherever it shows up
+                c.log("  the sweep found no other playable node -> looking for the boss")
+                searched, leg, steps = True, 0, 0
+                continue
+            zoom = zoom or state.scale
+            # a blue (playable) path running off the screen points the way: follow it before the sweep (not
+            # during it: that pulls the map back and forth against the sweep)
+            follow = bool(state.exits) and followed < 3 and not (leg or steps or searched)
+            if follow:
                 way, followed = state.exits[0], followed + 1
             else:
-                way, pans = self.PANS[pans], pans + 1
+                way, steps = self.SWEEP_ORDER[leg], steps + 1
             c.log(f"  nothing playable in view -> panning the map ({way})")
-            c.swipe(*self.SHOW[way], 700, f"pan map: show {way}")
+            before = c.img
+            c.swipe(*(self.SHOW if follow else self.SWEEP)[way], 700, f"pan map: show {way}")
             c.look()
             if c.screen != "event_map":
                 return  # a pan can open something; let the main loop handle it
+            if v.changed(before, c.img) < self.STILL:
+                c.log(f"  the map doesn't move further {way}")
+                if follow:
+                    followed = 3  # the line's end is in view already: stop following it
+                else:
+                    leg, steps = leg + 1, 0
+            elif not follow and steps >= self.SWEEP_STEPS:
+                leg, steps = leg + 1, 0
         summary = ", ".join(f"{n.score if n.score is not None else '???'}{'*' if n.reachable else ''}"
                             f"{' (boss)' if eventmap.is_boss(state, n) else ''}"
                             for n in state.nodes if not n.cleared)

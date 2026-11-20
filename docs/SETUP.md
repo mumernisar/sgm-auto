@@ -26,8 +26,9 @@ Check your screen with `adb shell wm size` (it reports portrait, e.g. `1600x2560
 3. **Open SGM Bot**, allow *Display over other apps*, show the overlay, then open the game.
 4. **First ▶:** Magisk asks for root. Allow it and choose *Forever*. The app keeps one root shell open, so
    Magisk asks only once and doesn't show a toast per command.
-5. **In the game:** the bot recognises auto battle by the "3x" badge above the brain button (`shots/011`).
-   If yours shows something else, the fight screen needs a new template.
+5. **In the game:** the bot reads auto battle from the 1x / 2x / 3x badge above the brain button
+   (`shots/011`, `065`, `066`) turns it on (brain) and sets 3x (badge). If yours looks different, the fight screen
+   needs new `templates/auto_*.png`.
 
 ## Optional: charging off (adb only)
 

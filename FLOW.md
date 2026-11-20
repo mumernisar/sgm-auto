@@ -10,8 +10,10 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
 - Screens animate in, so the bot waits for each screen to settle before reading or tapping.
 - On first use of the filter in a run, tap 🚫 to clear anything left over from before.
 - Front of the team = the **rightmost** slot (it fights first).
-- Fight (`shots/011`–`013`): auto starts OFF. Auto on = "3x" badge above the brain. If the brain is visible
-  without the badge, tap it. Never tap pause. On the Paused screen (`014`), tap RESUME, never QUIT.
+- Fight (`shots/011`–`013`, `065`–`067`): auto (Brain Drain) is off = dark brain, no badge; on = lit brain
+  with a 1x / 2x / 3x speed badge above it. Keep it on at 3x (`auto_speed`): off → tap the brain; another
+  speed → tap the badge (it steps the speed). At most 4 taps per fight.
+  The auto state is logged whenever it changes. Never tap pause. On the Paused screen (`014`), tap RESUME, never QUIT.
 - Victory (`015`, `016`, milestone `028`–`031`, appears 0..N times): tap CONTINUE while VICTORY shows.
   Never FAVORITE.
 - "Missing Moves or Guest Star" popup (`027`): tap FIGHT!, never EQUIP.
@@ -38,11 +40,15 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
      If none, step one node on from the marker (its line is often under the marker).
    - Cleared = green ✓ at the node's right edge.
    - Pick the lowest score first; `???` last. **The boss** (bigger node) **comes last**: it ends the chapter
-     and the game moves on, so it's only fought when no other uncleared node is in view, or a full search found
-     nothing else playable.
+     and the game moves on, so it's only fought after a full sweep of the map found nothing else playable
+     (other uncleared nodes may be locked).
    - Nothing playable with a visible line: **zoom out first** (two-finger pinch via root sendevent, up to
-     twice), then take the node next to the marker if there is one, else pan around the 8 views next to the
-     start (below, below-right, right, above-right, above, above-left, left, below-left). A playable node at
+     twice), then take the node next to the marker if there is one. Else follow a blue line running off the
+     screen (up to 3 swipes, before the sweep only), then **sweep**: big swipes up until the map stops moving, then left, down,
+     right and up again the same way (at most 3 swipes per direction). The first playable non-boss node ends
+     the sweep. If none: sweep again, now taking the boss as soon as it's in view. Nothing at all: stop.
+     Each swipe compares the frames before and after, so a direction (or a blue line) whose edge is reached
+     isn't swiped again. The zoom is fixed after zooming out (pans don't change it). A playable node at
      the screen edge is panned toward the centre before tapping. A node tap that doesn't open: nudge the map
      (a different direction each time) after 3, skip after 6 (after 2 for the marker guess).
    - Story maps have no TIME REMAINING: recognised by their skull badges (zoom up to 1.25x).
