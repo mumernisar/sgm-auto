@@ -1,73 +1,88 @@
 # SGM Bot
 
-A bot that plays **Skullgirls Mobile** on its own: event maps, origin stories and prize fights. It runs entirely
-on the Android device behind a small floating panel, reads the screen with OpenCV and Tesseract (no AI, no
-network) and never spends anything.
+**Skullgirls Mobile plays itself.** Event maps, origin stories and prize fights, right on your phone or tablet.
+No root, no PC, no AI, and it never spends a single gem.
 
+[![Latest release](https://img.shields.io/github/v/release/mumernisar/sgm-auto?include_prereleases&label=download&color=e8730c)](../../releases)
+![No root needed](https://img.shields.io/badge/root-not%20needed-2ea44f)
+![Android 11+](https://img.shields.io/badge/Android-11%2B-3ddc84?logo=android&logoColor=white)
+![Phones and tablets](https://img.shields.io/badge/screens-phones%20%26%20tablets-blue)
+![Offline](https://img.shields.io/badge/runs-on%20the%20device%2C%20offline-6f42c1)
+![Never spends](https://img.shields.io/badge/never%20spends-gems%20%C2%B7%20refills%20%C2%B7%20ads-critical)
 
 https://github.com/user-attachments/assets/e9a1c717-fd89-42b0-a11f-dc0f9e0903a4
 
+## Why you'll like it
 
+- **No root needed.** The free [Shizuku](https://shizuku.rikka.app/) app gives it what it needs: a one-time pairing
+  over Wi-Fi, no computer. Rooted (Magisk)? That works too.
+- **Any phone or tablet.** One tap (⤢) switches the screen to the layout it knows, and back when you're done.
+  Tested on a Galaxy S23 and a Lenovo tablet.
+- **Fast on phones.** *Fast* mode runs the game at 1920x1200: a whole event node (map → fight → back) takes
+  about a minute, fight included.
+- **Builds your team.** It reads node requirements (elements, rarities, characters, even "NEED … VARIANT"
+  tooltips), filters your roster and drags the right fighters in.
+- **Takes your hands off, gives them back.** Touch the game at any time and it pauses; ▶ carries on.
+- **Safe by design.** It never taps gems, purchases, energy refills, ads or equips, and it stops and tells you
+  why when it meets a screen it doesn't know.
 
-## What it does
+## Get started (no root)
 
-Pick a mode on the panel (☰), press ▶ and leave it.
+1. **Install** the APK from [Releases](../../releases) and open **SGM Bot**.
+2. **Do its checklist** (first time only): allow *Display over other apps*, install Shizuku and pair it (about
+   5 minutes, Wi-Fi only), then allow SGM Bot in Shizuku. Each step has a button that takes you there.
+3. Tap **Show the panel and open Skullgirls**.
+4. On a phone, tap **⤢** on the panel: the screen switches to the tablet's shape and the game restarts.
+5. Open your event or the prize fights and press **▶**.
 
-- **Event**: origin stories and event maps.
-  - Reads the map and plays the next node, chapter by chapter, boss last.
-  - Builds the team itself when a node has requirements: reads them (including "NEED … VARIANT" tooltips),
-    filters your roster and drags the right fighter in.
-- **Prize**: prize fights you don't want to grind by hand.
-  - Picks the opponent with the best bonus under a power cap.
-  - Saves energy: the cheapest gold fillers plus one anchor sized to the enemy, so strong fighters stay fresh.
-    Fighters without enough bolts are skipped.
-- **Auto**: works out which of the two you're on and switches by itself.
+Step-by-step guide, rooted devices and brand-specific notes: **[`docs/SETUP.md`](docs/SETUP.md)**.
 
-It never taps gems, purchases, energy refills or ads.
+**Needs:** Android 11+ (arm64) and the game in English.
 
-**Tested on:** origin stories, older prize fights, and monthly events (Lovesick, Gremlin-style maps).
+## What it plays
 
-## Get it
+Pick a mode under **☰**, press **▶** and leave it.
 
-Download the APK from [Releases](../../releases), install it, open it and follow its checklist.
-**Step-by-step guide: [`docs/SETUP.md`](docs/SETUP.md).**
+| Mode | What it does |
+|---|---|
+| **Event** | Origin stories and event maps: zooms the map out, finds the next open node, sweeps the map when none is in view, plays the boss last and moves on chapter by chapter, difficulty by difficulty. Rematches a node up to 3 times. |
+| **Prize** | Picks the opponent with the best bonus under a power cap, then builds a cheap team: gold fillers plus one anchor sized to the enemy, so your strong fighters stay fresh. Skips fighters without enough energy. |
+| **Auto** | Works out which of the two you're on and switches by itself. |
 
-- **Needs:** Android 11+ (arm64), the game in English, and either root (Magisk) or the free
-  [Shizuku](https://shizuku.rikka.app/) app (no root, a one-time pairing over Wi-Fi).
-- **Any screen:** built on a 2560x1600 tablet; on other screens (phones) the app switches the screen to that
-  shape while a run is going and back afterwards, by default at 1920x1200 (*Fast*: the bot thinks ~40% faster). Tested without root on a Galaxy S23.
-- The repo is set up for coding agents too: point yours at it (`CLAUDE.md` is the entry point).
+**Tested on:** origin stories, prize fights and monthly events (Lovesick, Gremlin-style maps, Maplecrest).
 
-## For developers
+## The panel
 
-- **Using it:** the Android app (`android/`) runs everything on the device behind the floating panel.
-- **Developing it:** the same Python package (`bot/`) runs from the Mac over adb, with tests against 64
-  reference screenshots.
+A small translucent panel sits at the top left of the game, over your name, clear of your score.
 
-Docs: `FLOW.md` (behaviour, the rules) · `docs/DEVELOPMENT.md` (how it works, how to change it) ·
-`docs/SETUP.md` (setup on other devices) · `CLAUDE.md` (agent notes).
+| | |
+|---|---|
+| **⤢** | Switch the screen to the tablet's shape (phones; the game restarts). Green = on. |
+| **▶ / ⏸** | Start / pause at once (no tap after you press it, even mid-step). |
+| **■** | Stop. |
+| **☰** | Recent steps, the mode (Auto / Event / Prize) and the size (**Fast** 1920x1200 or **Full** 2560x1600). Pauses the bot while open. |
+
+The line under the buttons shows the current step; when the bot stops on its own, it says why there (and you
+get a notification). Drag the panel by that line to move it; hold it to put it back. In an event fight it shows
+the tries left on the node: `[fight +++]`, each loss turns a `+` into `✗`.
 
 *Unofficial fan project, not affiliated with Hidden Variable or Autumn Games. Automating the game may break its
 terms of service: use it at your own risk.*
 
-## Use the app (no laptop needed)
+---
 
-1. Open **SGM Bot** and do the checklist (first time only: *Display over other apps*, then root or Shizuku;
-   [guide](docs/SETUP.md)). Tap **Show the panel and open Skullgirls**.
-2. In Skullgirls, tap **▶** on the translucent panel at the top left, over your name. With root, Magisk asks once:
-   allow it and choose "Forever". On a phone (any screen that isn't 2560x1600) tap **⤢** first: it switches the
-   screen to the tablet's 16:10 shape and restarts the game; open your event or prize fights, then ▶.
-3. The panel shows the current step: **⏸** pauses at once (no more taps, even mid-step; on **▶** the bot looks
-   at the screen again), **▶** resumes, **■** stops. **☰** opens recent steps and the
-   mode (**Auto** detects event vs prize; Event / Prize force one) and pauses the bot while open. Mode changes
-   apply from the next ▶. Touching the game pauses the bot too. Drag the panel by its text; it remembers the spot (hold the text to put it back).
-   During an event fight it shows the tries left on that node: `[fight +++]`, and each loss turns a `+` into `✗`.
-4. When the bot stops on its own, the reason is the last line on the panel (e.g. an unknown screen, or no
-   opponent under the cap).
+## For developers
 
-Log on the device: `/data/data/dev.umer.sgmbot/files/logs/bot.log` (readable with root, or `run-as` on a debug build).
+The same Python package (`bot/`, OpenCV + Tesseract) runs inside the Android app (`android/`, via Chaquopy) and
+from a Mac over adb. It's tested offline against 75 reference screenshots, at full size and at Fast mode's
+1920x1200. The repo is set up for coding agents too: point yours at it (`CLAUDE.md` is the entry point).
 
-## Build / update the app (Mac)
+Docs: [`FLOW.md`](FLOW.md) (what it does on every screen) · [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) (how it
+works) · [`docs/NO-ROOT.md`](docs/NO-ROOT.md) (phones without root) · [`docs/SPEED.md`](docs/SPEED.md) (making it
+fast on phones) · [`docs/SETUP.md`](docs/SETUP.md) (setup and other devices).
+
+<details>
+<summary><b>Build and install the app (Mac)</b></summary>
 
 ```sh
 cd android
@@ -78,43 +93,56 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk   # stops a running bot
 Needs JDK 17+, the Android SDK (path in `android/local.properties`) and Python 3.10
 (`brew install python@3.10`). The build copies `bot/` and `templates/` into the app automatically.
 
-## Releases
+Log on the device: `/data/data/dev.umer.sgmbot/files/logs/bot.log` (readable with root, or `run-as` on a debug
+build).
+</details>
 
-Download the latest APK from the repo's **Releases** page and open it on the tablet (or `adb install -r`).
-The version is in `VERSION` (`MAJOR.MINOR.PATCH`, or `-beta.N` for pre-releases). To publish one, from a clean
-`main` with `gh auth login` done:
-
-```sh
-./release.sh 0.1.0-beta.2   # tests, build, tag v0.1.0-beta.2, push, GitHub pre-release with the APK
-./release.sh 0.1.0          # a final release
-```
-
-## Run from the Mac (development)
+<details>
+<summary><b>Run from the Mac</b></summary>
 
 ```sh
 .venv/bin/python run.py look                 # what the bot sees on the current screen
 .venv/bin/python run.py auto --minutes 5     # real run, stops after 5 minutes (Ctrl+C any time)
 .venv/bin/python run.py event --dry-run      # decide and log, never tap
-.venv/bin/python run.py prize                # force prize fights
-./snap.sh <label>                            # save the tablet's screen to shots/ (reference / new screens)
-./charge.sh off                              # stop the tablet charging over USB (it re-enables itself)
+.venv/bin/python run.py prize --size fast    # force prize fights, at 1920x1200
+./snap.sh <label>                            # save the device's screen to shots/ (reference / new screens)
+./charge.sh off                              # stop a rooted tablet charging over USB (it re-enables itself)
 ```
 
 Logs: `logs/bot.log`; an annotated screenshot of every tap and error is saved in `logs/debug/`.
 First-time setup: `python3 -m venv .venv && .venv/bin/pip install opencv-python-headless numpy pytesseract`
 and `brew install tesseract`.
+</details>
 
-## Tests (offline, against `shots/`)
+<details>
+<summary><b>Tests</b></summary>
 
 ```sh
-.venv/bin/python -m tests.test_screens   # every shot → expected screen
-.venv/bin/python -m tests.test_readers   # scores, icons, cards, maps, areas… vs verified values
+.venv/bin/python -m tests.test_screens          # every shot → expected screen
+.venv/bin/python -m tests.test_readers          # scores, icons, cards, maps, areas… vs verified values
+.venv/bin/python -m tests.test_screens --fast   # the same at 1920x1200
+.venv/bin/python -m tests.test_readers --fast
 ```
+</details>
 
-## Settings
+<details>
+<summary><b>Settings</b></summary>
 
 Defaults and comments are in `bot/config.py`. Override any of them in `config.json` next to `run.py` (Mac):
 
 ```json
-{ "max_enemy_total": 25000, "delay": [1.5, 3.0] }
+{ "max_enemy_total": 25000, "delay": [1.5, 3.0], "screen_size": "fast" }
 ```
+</details>
+
+<details>
+<summary><b>Releases</b></summary>
+
+The version is in `VERSION` (`MAJOR.MINOR.PATCH`, or `-beta.N` for pre-releases). To publish one, from a clean
+`main` with `gh auth login` done:
+
+```sh
+./release.sh 0.1.0-beta.6   # tests, build, tag, push, GitHub pre-release with the APK
+./release.sh 0.1.0          # a final release
+```
+</details>
