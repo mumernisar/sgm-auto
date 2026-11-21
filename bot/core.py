@@ -2,13 +2,13 @@
 import random
 import time
 from datetime import datetime
-from pathlib import Path
 
 import cv2
 
 from . import control, screens
 from . import vision as v
 from .config import ROOT
+from .frame import design
 
 
 class Stop(Exception):
@@ -24,8 +24,10 @@ class Ctx:
         (ROOT / "logs").mkdir(exist_ok=True)
         self.log_file = open(ROOT / "logs" / "bot.log", "a", buffering=1)
         self.counter = 0
-        self.img = None
+        self.raw = None   # the frame as captured: 2560x1600, or 1920x1200 in Fast mode (see `frame`)
+        self._img = None
         self.screen = None
+        self.changes = 0  # screen changes seen so far: a result cached on one screen is stale once this moves
         dev.log = self.log
 
     # --- logging -------------------------------------------------------------------------------
@@ -55,10 +57,22 @@ class Ctx:
             old.unlink()
 
     # --- screen ----------------------------------------------------------------------------------
-    def look(self):
-        control.checkpoint()  # honour pause / stop from the overlay between actions
-        self.img = self.dev.capture()
-        self.screen, _ = screens.detect(self.img)
+    @property
+    def img(self):
+        """The frame at 2560x1600, for readers and team building (their pixel sizes are measured there).
+        Upscaled once per capture, only when asked for; screen detection and the map read use `raw`."""
+        if self._img is None and self.raw is not None:
+            self._img = design(self.raw)
+        return self._img
+
+    def look(self, fresh=False):
+        """fresh: the main loop's look, which starts a new step (a pause just holds it). Anywhere else a pause
+        drops the step in progress (control.Resumed)."""
+        control.checkpoint(fresh)
+        self.raw, self._img = self.dev.capture(), None
+        before = self.screen
+        self.screen, _ = screens.detect(self.raw)
+        self.changes += self.screen != before
         return self.screen
 
     def wait_for(self, wanted, timeout=12, interval=0.7):
@@ -94,7 +108,7 @@ class Ctx:
 
     def tap_template(self, name, region=None, threshold=0.75, why=None):
         """Find a button by template on the current image and tap it. Returns False if it isn't there."""
-        m = v.find(self.img, name, region, threshold)
+        m = v.find(self.raw, name, region, threshold)
         if not m:
             self.log(f"  {name} not found")
             return False

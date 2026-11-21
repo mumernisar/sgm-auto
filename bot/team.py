@@ -1,5 +1,4 @@
 """Filter dialog control and team building for both modes."""
-from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
@@ -23,18 +22,15 @@ PICKER_SWIPE_Y = 1250
 CARDS_START_X = 111  # first card's icon x when the list is scrolled to the start
 
 
-@dataclass
-class Unit:
-    """Constraint for one team slot: tiles to select in the filter, characters to skip."""
-    tiles: set = field(default_factory=set)
-    skip_characters: set = field(default_factory=set)
-
-
 class Filter:
     def __init__(self, ctx):
         self.ctx = ctx
         self.state = None      # dict tile -> selected, once read
         self.ascending = None  # sort direction, once confirmed
+
+    def forget(self):
+        """After a pause: the user may have changed the filter or the sort, so both are read again."""
+        self.state = self.ascending = None
 
     def open(self):
         c = self.ctx
@@ -149,7 +145,10 @@ def scan(ctx, ok, ascending, prefer=None, stop=None, energy=False, characters=Fa
     last = None  # (card, page)
     prev_strip = None
     for page in range(max_swipes):
-        if ctx.look() != "team_picker":
+        # one unrecognised frame mid-scroll isn't leaving the picker (S23: a stop on 'unknown' while paging)
+        if ctx.look() == "unknown":
+            ctx.wait_for("team_picker", timeout=2.5)
+        if ctx.screen != "team_picker":
             raise Stop(f"left the team picker while scanning ({ctx.screen})")
         # end of list = the card strip didn't move (scores alone repeat: many identical cheap cards)
         strip = cv2.resize(cv2.cvtColor(ctx.img[960:1560], cv2.COLOR_BGR2GRAY), (320, 75)).astype(np.int16)

@@ -24,6 +24,11 @@ android {
         ndk { abiFilters += listOf("arm64-v8a") } // the tablet; keeps the APK small
     }
 
+    buildFeatures {
+        aidl = true        // IShellService: the Shizuku shell
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -49,6 +54,9 @@ chaquopy {
 
 dependencies {
     implementation("cz.adaptech.tesseract4android:tesseract4android:4.9.0")
+    // without root: a shell with adb's rights through Shizuku (https://shizuku.rikka.app/)
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 }
 
 // The bot's Python package and templates live in the repo root (shared with the Mac version):

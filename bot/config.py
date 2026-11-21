@@ -42,10 +42,14 @@ class Config:
                             (1400, ("gold",), False),
                             (9000, ("diamond",), False))
     base_rarities: tuple = ("gold", "diamond")  # fillers too: plenty of cheap golds, no silver needed
-    use_energy_refills: bool = False
+
+    # screen size: "full" (2560x1600), "fast" (1920x1200: image work ~45% faster, fewer pixels for the game to
+    # draw) or "auto" (full on a 2560x1600 screen, i.e. the tablet; fast elsewhere). The app's ☰ sets it
+    screen_size: str = "auto"
 
     # safety / housekeeping
-    keep_charging_off: bool = True      # over adb only (USB keeps the tablet charging); the app never touches it
+    fit_screen: bool = True             # over adb: switch other screens to 2560x1600 (wm size) when not yet; the app has ⤢
+    keep_charging_off: bool = True      # over adb with root only (USB keeps the tablet charging); the app never does
     debug_dir: str = "logs/debug"
     keep_debug_images: int = 400
 

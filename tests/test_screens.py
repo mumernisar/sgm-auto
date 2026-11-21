@@ -1,6 +1,7 @@
 """Run the screen detector over every reference shot and compare with the expected screen.
 
     .venv/bin/python -m tests.test_screens
+    .venv/bin/python -m tests.test_screens --fast   # every shot shrunk to Fast mode's 1920x1200 first
 """
 import sys
 import time
@@ -22,10 +23,14 @@ EXPECTED = {
     "028": "victory", "029": "victory", "030": "victory", "031": "victory",
     "032": "prize_lobby", "033": "prize_team", "034": "prize_team", "035": "energy_refill",
     "036": "filter", "037": "defeat", "038": "defeat", "039": "keep_streak", "040": "prize_lobby", "041": "team_picker", "042": "team_picker", "043": "team_picker", "044": "event_map", "045": "team_picker", "046": "event_map", "047": "event_map", "048": "event_list", "049": "event_areas", "050": "event_list", "051": "cutscene", "052": "cutscene", "053": "event_map", "054": "event_areas", "055": "event_areas", "056": "offer", "057": "team_picker", "058": "modifiers", "059": "event_areas", "060": "event_areas", "061": "event_map", "062": "event_map", "063": "event_areas", "064": "event_prefight",
-    "065": "fight", "066": "fight", "067": "fight", "068": "event_map",
+    "065": "fight", "066": "fight", "067": "fight", "068": "event_map", "069": "event_map", "070": "event_map",
+    "073": "filter",  # real Fast frame: the filter dialog over a prize team page, the panel over the top bar
+    "072": "gifts_full",  # real Fast frame: over VICTORY, the gift inbox is full
+    "071": "event_map",  # real Fast frame (1920x1200) from the S23, no timer, zoom 0.85: between the old check's steps
 }
 
 if __name__ == "__main__":
+    fast = "--fast" in sys.argv
     bad = 0
     for p in sorted(SHOTS.glob("*.png")):
         if p.name.endswith("_small.png"):
@@ -34,7 +39,10 @@ if __name__ == "__main__":
         if num not in EXPECTED:  # new snaps without a label yet
             continue
         t = time.time()
-        got, m = detect(cv2.imread(str(p)))
+        img = cv2.imread(str(p))
+        if fast:
+            img = cv2.resize(img, (1920, 1200), interpolation=cv2.INTER_AREA)
+        got, m = detect(img)
         ok = got == EXPECTED.get(num)
         bad += not ok
         score = f"{m.score:.2f}" if m else "-"

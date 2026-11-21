@@ -1,5 +1,7 @@
-"""Decide which game screen is showing. Popups are checked first because they sit on top of other screens."""
+"""Decide which game screen is showing. Popups are checked first because they sit on top of other screens.
+Works on the frame as captured (any size, see `frame`)."""
 from . import vision as v
+from .frame import design
 
 # (screen, template, search region x,y,w,h, threshold) — first hit wins
 CHECKS = [
@@ -7,6 +9,8 @@ CHECKS = [
     # paid offers can pop over any screen (even VICTORY): only ever close them
     ("offer",          "offer_hdr",          (500, 250, 1500, 300), 0.75),
     ("modifiers",      "modifiers_hdr",      (850, 200, 860, 260), 0.75),
+    # over VICTORY: the gift inbox is full (072); its CONTINUE behind is greyed and taps don't reach it
+    ("gifts_full",     "gifts_full_hdr",     (800, 420, 960, 260), 0.75),
     ("keep_streak",    "keep_streak_hdr",    (1000, 440, 560, 200), 0.75),
     ("energy_refill",  "energy_refill_hdr",  (1050, 500, 460, 200), 0.75),
     ("moves_popup",    "moves_popup_fight",  (1250, 980, 500, 260), 0.8),
@@ -33,7 +37,7 @@ def detect(img):
         if m:
             if screen == "event_prefight":
                 from .readers import fight_energy_cost
-                if fight_energy_cost(img):  # ⚡ cost plate above FIGHT only exists in prize fights
+                if fight_energy_cost(design(img)):  # ⚡ cost plate above FIGHT only exists in prize fights
                     return "prize_team", m
             return screen, m
     from .eventmap import looks_like_map

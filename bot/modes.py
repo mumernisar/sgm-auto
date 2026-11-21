@@ -26,6 +26,12 @@ class Common:
             self.auto_seen, self.auto_taps = None, 0
         return getattr(self, screen, None)
 
+    def forget_step(self):
+        """After a pause (the user may have played meanwhile): drop what's remembered about the screen in front.
+        Kept: wins / losses, nodes given up on, which result is already counted."""
+        self.auto_seen, self.auto_taps = None, 0
+        self.filt.forget()
+
     def lives(self):
         """Tries left on the current fight, shown on the [fight] line ('' = no rematches in this mode)."""
         return ""
@@ -74,6 +80,11 @@ class Common:
     def back(self, why):
         self.ctx.tap_template("back_arrow", BACK, 0.7, why=why)
 
+    def gifts_full(self):
+        """'Maximum number of Gifts reached!' over a VICTORY screen: OK only closes it (gifts are never sent)."""
+        if not self.ctx.tap_template("gifts_ok", (1000, 1050, 560, 260), 0.7, why="OK (gift inbox full)"):
+            raise Stop("a 'maximum number of gifts' popup is showing but its OK button wasn't found")
+
     def continue_(self):
         return self.ctx.tap_template("continue_btn", BOTTOM_BUTTONS, why="continue")
 
@@ -88,6 +99,10 @@ class EventMode(Common):
         self.counted = False      # result of the current match already counted
         self.built = False        # team already built for the current node
         self.swept = False        # a full sweep of this map found nothing but the boss (kept across retries)
+        self.zoom = None          # map zoom of the last read: the next read only confirms it (fully zoomed out is
+                                  # the same zoom every time; cleared on a new map and after a pause)
+        self.seen = None          # (frame, Ctx.changes, state) of the last map read, reused while nothing moved
+        self.zoomed_at = None     # Ctx.changes when the map was last zoomed fully out (redo once a screen came up)
 
     # finger swipes that show more of the map in one direction
     SHOW = {"below": ((1280, 1150), (1280, 550)), "above": ((1280, 450), (1280, 1250)),
@@ -100,6 +115,34 @@ class EventMode(Common):
     SWEEP_STEPS = 3   # swipes per direction at most
     STILL = 3.0       # a pan that changes less than this % of pixels hit the map's edge (edge bounce < 1.8%)
 
+    def forget_step(self):
+        super().forget_step()
+        self.zoom, self.swept, self.map_taps, self.seen = None, False, 0, None  # the map may have been moved
+        self.zoomed_at = None  # or zoomed
+        self.built, self.retreat = False, False  # the team may have changed: FIGHT is checked again
+
+    def _zoom_out(self, why):
+        """One pinch out. False if it left the map (the main loop handles what came up). The remembered zoom is
+        kept: it's the hint for the next read, and fully zoomed out is the same zoom every time."""
+        c = self.ctx
+        c.dev.pinch((1280, 800), 1200, 350, why=why)
+        self.seen = None
+        c.settle(1.0)
+        self.zoomed_at = c.changes
+        return c.screen == "event_map"
+
+    def _read_map(self, zoom):
+        """The map in view. The last read is reused while the view hasn't moved (a pan at the map's edge, a tap
+        that opened nothing) and no other screen came up since: after a fight only a ✓ differs, well under STILL."""
+        c = self.ctx
+        if self.seen:
+            frame, changes, state = self.seen
+            if changes == c.changes and frame.shape == c.raw.shape and v.changed(frame, c.raw) < self.STILL:
+                return state
+        state = eventmap.read(c.raw, zoom, hint=self.zoom)
+        self.seen = (c.raw, c.changes, state)
+        return state
+
     @staticmethod
     def _at_edge(node):
         x, y = node.center
@@ -109,23 +152,29 @@ class EventMode(Common):
         c = self.ctx
         self.retreat = False
         node = state = None
-        zoomed_out = edge_pans = followed = leg = steps = 0
+        pinches = edge_pans = followed = leg = steps = 0
         searched = self.swept  # one full sweep found nothing but the boss: it may be fought now
-        zoom = None       # map zoom, fixed once zooming out is over (pans don't change it)
+        zoom = None       # map zoom, fixed once fully zoomed out (pans don't change it)
+        # the game resets the map's zoom whenever it's left: zoom fully out first, every time (more of the map in
+        # view, one known zoom; a read at the map's own zoom first was mostly wasted)
+        if self.zoomed_at != c.changes and not self._zoom_out("zoom out fully"):
+            return
         while True:
-            state = eventmap.read(c.img, zoom)
+            state = self._read_map(zoom)
+            if state.nodes:
+                self.zoom = state.scale
             if not state.nodes and not zoom:  # (mid-sweep, a view can show no nodes at all)
                 raise Stop("couldn't read the event map (zoom it so the node numbers are readable)")
+            if not zoom:
+                if state.scale > eventmap.FLOOR and pinches < 2:  # zoomed in further (~1.6 after a game restart)
+                    pinches += 1
+                    if not self._zoom_out(f"zoom {state.scale}: zoom out further"):
+                        return
+                    continue
+                zoom = state.scale
             # best first: a node with a visible line; the boss ends the chapter (the game moves on to the next
             # one), so every other node comes first
             node = eventmap.choose(state, self.bad, boss=False, guess=False)
-            # maps open zoomed in: before anything else, zoom out (twice at most, not below ~0.6)
-            if not node and not searched and zoomed_out < 2 and state.scale > 0.65:
-                zoomed_out += 1
-                c.log(f"  nothing playable in view at zoom {state.scale} -> zooming out")
-                self.ctx.dev.pinch((1280, 800), 1200, 350, why="zoom out")
-                c.settle(1.0)
-                continue
             if not node:  # the node next to the marker (its line is often hidden under the marker)
                 node = eventmap.choose(state, self.bad, boss=False)
             if not node and searched:
@@ -139,8 +188,14 @@ class EventMode(Common):
                 edge_pans += 1
                 x, y = node.center
                 dx, dy = int((1280 - x) * 0.7), int((800 - y) * 0.7)
+                before = c.raw
                 c.swipe((1280 - dx // 2, 800 - dy // 2), (1280 + dx // 2, 800 + dy // 2), 700, "pan node into view")
                 c.look()
+                if c.screen != "event_map":
+                    return
+                if v.changed(before, c.raw) < self.STILL:  # at the map's edge: another pan won't move it either
+                    c.log("  the map doesn't move that way -> tapping the node where it is")
+                    edge_pans = 2
                 continue
             if node:
                 break
@@ -161,12 +216,12 @@ class EventMode(Common):
             else:
                 way, steps = self.SWEEP_ORDER[leg], steps + 1
             c.log(f"  nothing playable in view -> panning the map ({way})")
-            before = c.img
+            before = c.raw
             c.swipe(*(self.SHOW if follow else self.SWEEP)[way], 700, f"pan map: show {way}")
             c.look()
             if c.screen != "event_map":
                 return  # a pan can open something; let the main loop handle it
-            if v.changed(before, c.img) < self.STILL:
+            if v.changed(before, c.raw) < self.STILL:
                 c.log(f"  the map doesn't move further {way}")
                 if follow:
                     followed = 3  # the line's end is in view already: stop following it
@@ -174,10 +229,9 @@ class EventMode(Common):
                     leg, steps = leg + 1, 0
             elif not follow and steps >= self.SWEEP_STEPS:
                 leg, steps = leg + 1, 0
-        summary = ", ".join(f"{n.score if n.score is not None else '???'}{'*' if n.reachable else ''}"
-                            f"{' (boss)' if eventmap.is_boss(state, n) else ''}"
-                            for n in state.nodes if not n.cleared)
-        c.log(f"map (zoom {state.scale}): {summary}  (* = reachable)")
+        left = [n for n in state.nodes if not n.cleared]
+        c.log(f"map (zoom {state.scale}): {len(left)} not cleared, {sum(n.reachable for n in left)} open"
+              + (", boss in view" if any(eventmap.is_boss(state, n) for n in left) else ""))
         if not node:
             raise Stop("no usable node left on this map (looked around by panning)")
         self.node, self.node_losses, self.counted, self.built = node.center, 0, False, False
@@ -187,7 +241,8 @@ class EventMode(Common):
         # the game swallows the first tap after the map was swiped (even seconds later), so a tap that opens
         # nothing is repeated once right away
         for attempt in range(2):
-            c.tap(*node.center, f"node {node.score if node.score is not None else '???'}" + (" (again)" if attempt else ""))
+            c.tap(*node.center, ("boss node" if eventmap.is_boss(state, node) else "node")
+                  + (" (guess)" if node.guess else "") + (" (again)" if attempt else ""))
             opened = c.wait_change("event_map", timeout=4)
             if opened:
                 break
@@ -256,7 +311,7 @@ class EventMode(Common):
                 raise Stop("events list: can't find the selected card's PLAY button")
             c.log(f"  list: {card.percent}% {'playable' if card.playable else 'not playable'}")
             if card.playable and (card.percent is None or card.percent < 100):
-                self.bad, self.retreat, self.swept = [], False, False  # new map / area
+                self.bad, self.retreat, self.swept, self.zoom = [], False, False, None  # new map / area
                 c.tap(*card.play, "PLAY")
                 c.wait_change("event_list")
                 return
@@ -282,7 +337,7 @@ class EventMode(Common):
                 found = [a for a in r.areas(c.img) if not a.current]  # every chapter is done
             todo = sorted((a for a in found if a.percent < 100), key=lambda a: not a.current)
             if todo:
-                self.bad, self.retreat, self.swept = [], False, False
+                self.bad, self.retreat, self.swept, self.zoom = [], False, False, None
                 c.tap(*todo[0].tap, f"open area {todo[0].percent}%")
                 c.wait_change("event_areas")
                 return
@@ -322,7 +377,7 @@ class EventMode(Common):
                 return False
             c.log(f"  chapter: {area.percent}%")
             if area.percent < 100:
-                self.bad, self.retreat, self.swept = [], False, False
+                self.bad, self.retreat, self.swept, self.zoom = [], False, False, None
                 c.tap(*area.tap, f"open chapter {area.percent}%")
                 c.wait_change("event_areas")
                 return True
@@ -387,6 +442,10 @@ class PrizeMode(Common):
         self.built = False        # team already built for the current opponent
         self.cost = None          # energy cost per fighter for the current opponent
 
+    def forget_step(self):
+        super().forget_step()
+        self.built = False  # the team may have changed: built again (the energy cost seen is kept)
+
     def keep_streak(self):
         c = self.ctx
         import pytesseract
@@ -423,12 +482,26 @@ class PrizeMode(Common):
         c.look()
         c.tap_template("lobby_continue", (2000, 40, 560, 200), 0.7, why="continue to team")
 
+    def _page_enemy(self):
+        """The team page's enemy total once two reads in a row agree: it can still be changing as the page opens
+        (read once as 163 for 1,763, S23). None if it never settles: the lobby's number is used then."""
+        c = self.ctx
+        last = r.enemy_total(c.img)
+        for _ in range(3):
+            if c.settle(0.5) not in ("prize_team", "team_picker"):
+                break
+            now = r.enemy_total(c.img)
+            if now == last:
+                return now
+            last = now
+        return None
+
     def prize_team(self):
         c = self.ctx
         if not self.built:
             if c.settle(1.2) not in ("prize_team", "team_picker"):
                 return
-            mine, page_enemy = r.team_scores(c.img)
+            page_enemy = self._page_enemy()
             # the lobby number is the one we chose by; if the team page disagrees, be safe and use the larger
             enemy = max(x for x in (self.enemy, page_enemy, 0) if x is not None) or None
             if self.enemy and page_enemy and page_enemy != self.enemy:
@@ -438,7 +511,7 @@ class PrizeMode(Common):
             # keep the highest cost seen for this opponent (a partly hidden plate can under-count)
             self.cost = max(r.fight_energy_cost(c.img) or 4, self.cost or 0) + self.refill_hits
             reqs = r.requirements(c.img)
-            c.log(f"team page: mine {mine} vs {enemy}, cost {self.cost}, requirements: "
+            c.log(f"team page: enemy {enemy}, cost {self.cost}, requirements: "
                   + (", ".join(f"{'NOT ' if q.excluded else ''}{q.value}{'' if q.count is None else ' x' + str(q.count)}"
                                for q in reqs) or "none"))
             if not team.build_prize_team(c, self.filt, reqs, enemy, self.cost):
@@ -506,6 +579,10 @@ class AutoMode:
 
     def lives(self):
         return self.current.lives()
+
+    def forget_step(self):
+        self.event.forget_step()
+        self.prize.forget_step()
 
     def back(self, why):
         self.current.back(why)

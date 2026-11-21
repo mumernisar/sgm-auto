@@ -22,8 +22,13 @@ FIGHT_BTN = (2090, 80, 380, 110)
 
 
 def team_scores(img):
-    """(my total, enemy total) from the top bar; enemy is None when it shows '???'."""
-    return v.ocr_score(img, BAR_LEFT), v.ocr_score(img, BAR_RIGHT)
+    """(my total, enemy total) from the top bar; enemy is None when it shows '???'. In the app the control panel can
+    cover my total if it's dragged there (by default it ends at ~760, before it), so only enemy_total is relied on."""
+    return v.ocr_score(img, BAR_LEFT), enemy_total(img)
+
+
+def enemy_total(img):
+    return v.ocr_score(img, BAR_RIGHT)
 
 
 def fight_enabled(img):

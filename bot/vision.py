@@ -1,14 +1,16 @@
-"""Template matching, colour checks and OCR. All coordinates are full-res (2560x1600)."""
+"""Template matching, colour checks and OCR. Coordinates in and out are design units (2560x1600, see `frame`); the
+frame may be any size: regions and templates are scaled to it, matches come back in design units."""
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
 
 import cv2
 import numpy as np
 import pytesseract
 
+from . import control
 from .config import ROOT
+from .frame import k_of
 
 TEMPLATES = ROOT / "templates"
 
@@ -27,6 +29,13 @@ class Match:
         return self.x + self.w // 2, self.y + self.h // 2
 
 
+def _match(name, x, y, w, h, score, k):
+    """A hit found at pixel (x, y) with a w x h pixel template, in design units."""
+    if k == 1.0:
+        return Match(name, int(x), int(y), w, h, score)
+    return Match(name, round(x / k), round(y / k), round(w / k), round(h / k), score)
+
+
 @lru_cache(maxsize=None)
 def template(name):
     img = cv2.imread(str(TEMPLATES / f"{name}.png"))
@@ -35,10 +44,23 @@ def template(name):
     return img
 
 
+@lru_cache(maxsize=1024)
+def scaled(name, f, gray=False):
+    """Template drawn f times its size (f = map zoom x the frame's k), cached: callers mustn't modify it."""
+    tpl = template(name)
+    if gray:
+        tpl = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY)
+    return tpl if f == 1.0 else cv2.resize(tpl, None, fx=f, fy=f)
+
+
 def _crop(img, region):
+    """The part of img inside region (design units), and its top-left in img's pixels."""
     if region is None:
         return img, 0, 0
     x, y, w, h = region
+    k = k_of(img)
+    if k != 1.0:
+        x, y, w, h = round(x * k), round(y * k), round(w * k), round(h * k)
     H, W = img.shape[:2]
     x, y = max(0, x), max(0, y)
     return img[y:min(H, y + h), x:min(W, x + w)], x, y
@@ -52,21 +74,51 @@ def find(img, name, region=None, threshold=0.8, scales=(1.0,), gray=False):
 
 
 def find_all(img, name, region=None, threshold=0.8, scales=(1.0,), limit=50, gray=False):
+    k = k_of(img)
     sub, ox, oy = _crop(img, region)
-    tpl0 = template(name)
     if gray:
-        sub, tpl0 = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY), cv2.cvtColor(tpl0, cv2.COLOR_BGR2GRAY)
+        sub = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
     hits = []
     for s in scales:
-        tpl = tpl0 if s == 1.0 else cv2.resize(tpl0, None, fx=s, fy=s)
+        control.checkpoint()  # a pause or stop holds a long search (a map read) within one match
+        tpl = scaled(name, s * k, gray)
         th, tw = tpl.shape[:2]
         if th > sub.shape[0] or tw > sub.shape[1]:
             continue
         res = cv2.matchTemplate(sub, tpl, cv2.TM_CCOEFF_NORMED)
         ys, xs = np.where(res >= threshold)
         for x, y in zip(xs, ys):
-            hits.append(Match(name, int(x + ox), int(y + oy), tw, th, float(res[y, x])))
+            hits.append(_match(name, x + ox, y + oy, tw, th, float(res[y, x]), k))
     return _nms(hits)[:limit]
+
+
+def find_all_halved(img, half, name, threshold, scale, rough, pad=12):
+    """find_all at one scale for a big template, a quarter of the work: the search runs on half (img at half
+    size) with the lower threshold rough, and only windows around its hits are matched at full size. Same hits
+    and scores as find_all as long as the half-size search finds every hit (half-size scores of map badges are
+    within 0.07 of the full-size ones at 2560, 0.097 at 1920)."""
+    control.checkpoint()
+    k = k_of(img)
+    tpl = scaled(name, scale * k)
+    th, tw = tpl.shape[:2]
+    H, W = img.shape[:2]
+    if th > H or tw > W:
+        return []
+    res_h = cv2.matchTemplate(half, scaled(name, scale * k_of(half)), cv2.TM_CCOEFF_NORMED)
+    ys, xs = np.where(res_h >= rough)
+    if len(xs) == 0:
+        return []
+    # windows (in full-size result coordinates) around every rough hit; overlapping ones are merged
+    rh, rw = H - th + 1, W - tw + 1
+    near = np.zeros((rh, rw), np.uint8)
+    for x, y in zip(xs, ys):
+        near[max(0, 2 * y - pad):2 * y + pad + 1, max(0, 2 * x - pad):2 * x + pad + 1] = 1
+    res = np.full((rh, rw), -1, np.float32)
+    n, _, stats, _ = cv2.connectedComponentsWithStats(near)
+    for x, y, w, h, _ in stats[1:n]:
+        res[y:y + h, x:x + w] = cv2.matchTemplate(img[y:y + h + th - 1, x:x + w + tw - 1], tpl, cv2.TM_CCOEFF_NORMED)
+    ys, xs = np.where(res >= threshold)
+    return _nms([_match(name, x, y, tw, th, float(res[y, x]), k) for x, y in zip(xs, ys)])[:50]
 
 
 def _nms(hits):
@@ -85,9 +137,10 @@ GOLD = ((14, 140, 150), (34, 255, 255))
 def find_gold(img, name, region=None, threshold=0.7):
     """Match a gold UI element by the shape of its saturated-gold pixels only, so whatever is behind it
     (moon, night sky, wood) doesn't matter."""
+    k = k_of(img)
     sub, ox, oy = _crop(img, region)
     m_img = cv2.inRange(cv2.cvtColor(sub, cv2.COLOR_BGR2HSV), *GOLD)
-    m_tpl = cv2.inRange(cv2.cvtColor(template(name), cv2.COLOR_BGR2HSV), *GOLD)
+    m_tpl = cv2.inRange(cv2.cvtColor(scaled(name, k), cv2.COLOR_BGR2HSV), *GOLD)
     m_img = cv2.GaussianBlur(m_img, (5, 5), 0)
     m_tpl = cv2.GaussianBlur(m_tpl, (5, 5), 0)
     res = cv2.matchTemplate(m_img, m_tpl, cv2.TM_CCOEFF_NORMED)
@@ -95,7 +148,7 @@ def find_gold(img, name, region=None, threshold=0.7):
     if mx < threshold:
         return None
     th, tw = m_tpl.shape
-    return Match(name, loc[0] + ox, loc[1] + oy, tw, th, float(mx))
+    return _match(name, loc[0] + ox, loc[1] + oy, tw, th, float(mx), k)
 
 
 # --- shape matching (ignores colour / frame differences) -------------------------------------------
@@ -202,7 +255,7 @@ def _prep(sub, invert=False, scale=3):
 
 def ocr_text(img, region, psm=7):
     sub, _, _ = _crop(img, region)
-    return pytesseract.image_to_string(_prep(sub), config=f"--psm {psm}").strip()
+    return pytesseract.image_to_string(_prep(sub, scale=3 / k_of(img)), config=f"--psm {psm}").strip()
 
 
 def parse_score(text):
@@ -231,7 +284,7 @@ def _white_text(sub, scale=3):
 def ocr_score(img, region):
     sub, _, _ = _crop(img, region)
     txt = pytesseract.image_to_string(
-        _prep(sub), config="--psm 7 -c tessedit_char_whitelist=0123456789,.k?")
+        _prep(sub, scale=3 / k_of(img)), config="--psm 7 -c tessedit_char_whitelist=0123456789,.k?")
     return parse_score(txt)
 
 
@@ -239,11 +292,12 @@ def ocr_glyphs(img, region, whitelist="0123456789,.k?", white=False):
     """OCR after keeping only glyph-like pieces: anything touching the crop edge (frames, plaque borders)
     or too small/flat is dropped first. white=True picks white text by colour instead of Otsu."""
     sub, _, _ = _crop(img, region)
+    f = 3 / k_of(img)
     if white:
-        hsv = cv2.cvtColor(cv2.resize(sub, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC), cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(cv2.resize(sub, None, fx=f, fy=f, interpolation=cv2.INTER_CUBIC), cv2.COLOR_BGR2HSV)
         b = cv2.inRange(hsv, (0, 0, 170), (180, 90, 255))
     else:
-        b = 255 - _prep(sub, scale=3)  # white glyphs on black
+        b = 255 - _prep(sub, scale=f)  # white glyphs on black
     H, W = b.shape
     n, labels, stats, _ = cv2.connectedComponentsWithStats(b)
     keep = np.zeros_like(b)
@@ -262,7 +316,7 @@ def ocr_white_score(img, region):
     """Score in white text on a coloured/dark box (card corners)."""
     sub, _, _ = _crop(img, region)
     txt = pytesseract.image_to_string(
-        _white_text(sub), config="--psm 7 -c tessedit_char_whitelist=0123456789,.k?")
+        _white_text(sub, scale=3 / k_of(img)), config="--psm 7 -c tessedit_char_whitelist=0123456789,.k?")
     return parse_score(txt)
 
 
@@ -272,7 +326,8 @@ def ocr_multiplier(img, region):
             color_fraction(img, region, (170, 150, 120), (180, 255, 255)) < 0.15:
         return None
     sub, _, _ = _crop(img, region)
-    txt = pytesseract.image_to_string(_white_text(sub), config="--psm 7 -c tessedit_char_whitelist=x0123456789.")
+    txt = pytesseract.image_to_string(_white_text(sub, scale=3 / k_of(img)),
+                                      config="--psm 7 -c tessedit_char_whitelist=x0123456789.")
     m = re.search(r"(\d)\.?(\d)?", txt)
     if not m:
         return None

@@ -28,6 +28,7 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
 - **Offers** ("LIMITED TIME OFFER", can pop over VICTORY, `056`): tap ✕, never GET NOW.
 - **Cutscenes** (`051`, `052`, also mid-fight): tap SKIP.
 - **Fight modifiers** popup (`058`, can open from a map node tap): tap ✕. It counts as a node tap that didn't open.
+- **Gift inbox full** ("Maximum number of Gifts reached!", over VICTORY, `072`): tap OK. Gifts are never sent.
 - During an event fight the status line shows the tries left on that node: `[fight +++]`, each loss turns a
   `+` into `✗` (`++✗`, `+✗✗`).
 - **Auto mode** (default): prize screens switch to prize handling, maps/areas/lists/cutscenes to event; shared
@@ -35,25 +36,32 @@ the user asks.** Numbers (thresholds, ratios, caps) live in `bot/config.py`. Sho
 
 ## Event mode
 
-1. **Map** (`008`, `009`, `044`, `046`, `047`, story `053`). The zoom level is detected (0.5–1.25x); boss
-   nodes are drawn ~1.35x bigger.
+1. **Map** (`008`, `009`, `044`, `046`, `047`, story `053`, `071`). **On every arrival the map is zoomed fully out
+   first** (one pinch: two-finger, root sendevent on the tablet, injected touch events elsewhere; another, up to
+   twice, if it's still zoomed in further), because the game resets a map's zoom (to 1.0–1.1) whenever it's left.
+   Fully zoomed out is 0.75x on every map seen. The zoom level is detected (0.5–2.1x; a freshly started game opens
+   maps at ~1.6x, fully zoomed in is ~2.0x, `069`, `070`); boss nodes are drawn ~1.35x bigger.
    - Playable = uncleared node touched by a blue line (measured to the node's whole footprint: double nodes
      extend right, triangle nodes extend down), or an uncleared node with a bright revealed portrait.
      If none, step one node on from the marker (its line is often under the marker).
    - Cleared = green ✓ at the node's right edge.
-   - Pick the lowest score first; `???` last. **The boss** (bigger node) **comes last**: it ends the chapter
+   - **Any open node will do**: nodes unlock one after another, and the score doesn't matter on maps (only in
+     prize fights), so node scores aren't read. The bot takes the open node nearest the screen centre (no pan
+     needed to tap it). **The boss** (bigger node) **comes last**: it ends the chapter
      and the game moves on, so it's only fought after a full sweep of the map found nothing else playable
      (other uncleared nodes may be locked).
-   - Nothing playable with a visible line: **zoom out first** (two-finger pinch via root sendevent, up to
-     twice), then take the node next to the marker if there is one. Else follow a blue line running off the
+   - Nothing playable with a visible line: take the node next to the marker if there is one. Else follow a blue
+     line running off the
      screen (up to 3 swipes, before the sweep only), then **sweep**: big swipes up until the map stops moving, then left, down,
      right and up again the same way (at most 3 swipes per direction). The first playable non-boss node ends
      the sweep. If none: sweep again, now taking the boss as soon as it's in view. Nothing at all: stop.
      Each swipe compares the frames before and after, so a direction (or a blue line) whose edge is reached
-     isn't swiped again. The zoom is fixed after zooming out (pans don't change it). A playable node at
+     isn't swiped again. The zoom is fixed once zoomed out (pans don't change it). A playable node at
      the screen edge is panned toward the centre before tapping. A node tap that doesn't open: nudge the map
      (a different direction each time) after 3, skip after 6 (after 2 for the marker guess).
-   - Story maps have no TIME REMAINING: recognised by their skull badges (zoom up to 1.25x).
+   - Story maps (and events without a timer, `071`) have no TIME REMAINING: recognised by their skull badges at
+     any zoom (every zoom ranked on a half-size frame, the 3 best checked: the badge only matches within ~3% of
+     the true zoom).
 2. **Pre-fight** (`010`, `018`): if FIGHT is orange, fight. **The team is only touched when FIGHT is grey.**
    The user sets event teams by hand for synergy, so never rebuild a working team, not even after losses.
    - Read requirement icons by shape (colour-blind), with count badge (no number = applies to every

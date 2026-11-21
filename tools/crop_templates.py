@@ -1,6 +1,7 @@
 """Cut template images out of the reference shots.
 
-Coordinates are full-resolution (2560x1600) x, y, w, h. Re-run after tweaking a box:
+Coordinates are full-resolution (2560x1600) x, y, w, h; a shot taken in Fast mode (1920x1200) is upscaled to that
+first, so its boxes are in the same units. Re-run after tweaking a box:
     .venv/bin/python tools/crop_templates.py            # crop all + write templates/_sheet.png
     .venv/bin/python tools/crop_templates.py fight_btn  # crop one
 """
@@ -11,6 +12,8 @@ import cv2
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from bot.frame import design  # noqa: E402
 SHOTS = ROOT / "shots"
 OUT = ROOT / "templates"
 
@@ -92,6 +95,8 @@ SPEC = {
     "energy_refill_hdr": ("035", 1120, 570, 320, 70),
     "popup_close":       ("035", 1836, 512, 100, 96),
     "keep_streak_hdr":   ("039", 1070, 495, 420, 90),
+    "gifts_full_hdr":    ("072", 935, 515, 695, 85),   # "Maximum number of Gifts reached!" over VICTORY
+    "gifts_ok":          ("072", 1110, 1130, 340, 115),
     "keep_streak_close": ("039", 1870, 456, 100, 96),
 }
 
@@ -102,7 +107,7 @@ def shot_path(num):
 
 def crop(name):
     num, x, y, w, h = SPEC[name]
-    img = cv2.imread(str(shot_path(num)))
+    img = design(cv2.imread(str(shot_path(num))))
     tpl = img[y:y + h, x:x + w]
     cv2.imwrite(str(OUT / f"{name}.png"), tpl)
     return tpl

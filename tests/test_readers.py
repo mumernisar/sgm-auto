@@ -2,6 +2,7 @@
 real game. Run after any change to vision/readers/eventmap:
 
     .venv/bin/python -m tests.test_readers          # prints each check, exits 1 on any failure
+    .venv/bin/python -m tests.test_readers --fast   # the shots shrunk to Fast mode's 1920x1200 first
 
 Add a case whenever a new screenshot exposes a bug (snap it with snap.sh, note the right answer here).
 """
@@ -13,18 +14,37 @@ import numpy as np
 
 from bot import eventmap
 from bot import readers as r
+from bot.frame import design
 
 SHOTS = Path(__file__).resolve().parent.parent / "shots"
+FAST = "--fast" in sys.argv
 failures = []
 
 
-def load(num):
+def raw(num):
+    """The frame as the bot captures it (shrunk to 1920x1200 with --fast): for the map read."""
     p = next(p for p in SHOTS.glob(f"{num}_*.png") if not p.name.endswith("_small.png"))
-    return cv2.imread(str(p))
+    img = cv2.imread(str(p))
+    return cv2.resize(img, (1920, 1200), interpolation=cv2.INTER_AREA) if FAST else img
 
 
-def check(label, got, want):
-    ok = got == want
+def load(num):
+    """The frame readers get: 2560x1600 (upscaled again with --fast, as Ctx.img does)."""
+    return design(raw(num))
+
+
+def near(got, want, tol):
+    """Equal, but numbers may differ by tol (positions read from a smaller frame are rounded)."""
+    if isinstance(got, (list, tuple)) and isinstance(want, (list, tuple)):
+        return len(got) == len(want) and all(near(a, b, tol) for a, b in zip(got, want))
+    if isinstance(got, (int, float)) and isinstance(want, (int, float)) and not isinstance(got, bool):
+        return abs(got - want) <= tol
+    return got == want
+
+
+def check(label, got, want, pos=False):
+    """pos: got is screen positions, allowed 2 design units off in Fast mode."""
+    ok = near(got, want, 2 if pos and FAST else 0)
     print(f"{'ok ' if ok else 'BAD'} {label}: {got!r}" + ("" if ok else f"  (want {want!r})"))
     if not ok:
         failures.append(label)
@@ -55,13 +75,17 @@ if __name__ == "__main__":
 
     # tooltips
     check("045 variant tooltip", r.variant_from_tooltip(r.tooltip_text(load("045"))), "garish gremlin")
-    check("034 OR tooltip", r.tooltip_text(load("034")), "Must have a Dark or Air Fighter on your team!")
+    # (stray edge marks are harmless: the bot only looks for keywords; Fast mode reads a '[' before 034's)
+    check("034 OR tooltip", r.tooltip_text(load("034")).strip("[]| "), "Must have a Dark or Air Fighter on your team!")
 
     # prize lobby: (total, multiplier) per panel
     for num, want in [("026", [(898, 2.5), (1185, 2.0), (13500, 1.0)]),
                       ("032", [(1763, 1.5), (1539, 1.0), (24500, 1.5)]),
                       ("040", [(2879, 1.0), (2807, 1.5), (50800, 1.0)])]:
         check(f"{num} lobby", [(o.total, o.multiplier) for o in r.lobby_opponents(load(num))], want)
+
+    # 073 (real 1920 frame): the enemy total; my own total sits under the control panel, so it isn't relied on
+    check("073 enemy total", r.enemy_total(load("073")), 1763)
 
     # energy cost plate above FIGHT (prize only)
     for num, want in [("033", 4), ("041", 5), ("010", None), ("018", None)]:
@@ -72,27 +96,32 @@ if __name__ == "__main__":
           [(9184, "fire", "peacock"), (8334, "dark", "peacock"), (6635, "fire", "peacock"),
            (5704, "neutral", "peacock"), (4611, "dark", "peacock")])
     check("025 slots", [(s.score, s.element) for s in r.team_slots(load("025"))], [(2786, "air"), (9184, "fire")])
-    check("042 slots (no phantom from opponent art)", [s.icon[0] for s in r.team_slots(load("042"))], [88, 492, 894])
+    check("042 slots (no phantom from opponent art)", [s.icon[0] for s in r.team_slots(load("042"))], [88, 492, 894], pos=True)
     check("041 cards", [(c.score, c.energy) for c in r.picker_cards(load("041"), with_energy=True, with_character=False)],
           [(172, 10), (173, 10), (173, 10), (173, 10), (173, 10)])
 
-    # event maps: zoom and the node the bot would tap (score, centre)
-    for num, scale, pick in [("008", 0.75, (640, (1089, 1306))), ("009", 1.0, (640, (1020, 980))),
-                             ("046", 1.1, (1891, (1697, 1014))), ("047", 1.1, (83, (1286, 429))),  # boss
-                             ("053", 1.1, (None, (385, 274)))]:  # story map, no timer
-        st = eventmap.read(load(num))
+    # event maps: zoom and the node the bot would tap: any open one will do (they unlock one after another), so the
+    # one nearest the screen centre
+    for num, scale, pick in [("008", 0.75, (1572, 954)), ("009", 1.0, (1020, 980)), ("046", 1.1, (1281, 790)),
+                             ("047", 1.1, (1286, 429)),  # boss: the only open node
+                             ("053", 1.1, (1120, 1009))]:  # story map, no timer
+        st = eventmap.read(raw(num))
         node = eventmap.choose(st)
-        check(f"{num} map", (st.scale, node and (node.score, node.center)), (scale, pick))
+        check(f"{num} map zoom", st.scale, scale)
+        check(f"{num} map node", node and node.center, pick, pos=True)
+
+    # 071: a real 1920x1200 frame (S23, Fast), zoom between the steps of the old story-map check
+    check("071 map zoom", eventmap.read(raw("071")).scale, 0.85)
 
     # 062: the only open node is the boss, but just as the marker guess (no line), and a blue line runs off the top
-    st = eventmap.read(load("062"))
+    st = eventmap.read(raw("062"))
     check("062 boss is a guess", [n.guess for n in st.nodes if eventmap.is_boss(st, n)], [True])
     check("062 blue line exits", st.exits, ["above"])
-    check("009 blue line exits", eventmap.read(load("009")).exits, [])
+    check("009 blue line exits", eventmap.read(raw("009")).exits, [])
 
     # boss nodes are played last: (bosses on the map, other unfinished nodes left)
     for num, want in [("044", (1, 10)), ("046", (1, 3)), ("047", (1, 0)), ("009", (0, 5)), ("062", (1, 0)), ("068", (1, 0))]:
-        st = eventmap.read(load(num))
+        st = eventmap.read(raw(num))
         check(f"{num} boss last", (sum(eventmap.is_boss(st, n) for n in st.nodes),
                                    len(eventmap.unfinished(st, boss=False))), want)
 

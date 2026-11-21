@@ -29,13 +29,14 @@ It never taps gems, purchases, energy refills or ads.
 
 ## Get it
 
-Download the APK from [Releases](../../releases) and install it on the device.
+Download the APK from [Releases](../../releases), install it, open it and follow its checklist.
+**Step-by-step guide: [`docs/SETUP.md`](docs/SETUP.md).**
 
-- **Needs:** a rooted Android device (Magisk), Android 11+, arm64. It's built and tested on a 2560x1600 tablet;
-  other screens need their templates and positions checked first.
-- **Other devices:** `docs/SETUP.md` covers requirements, other screens and the plan for no root. The repo is
-  set up for coding agents too: point yours at it (`CLAUDE.md` is the entry point) and it has what it needs to
-  adapt the bot to your device.
+- **Needs:** Android 11+ (arm64), the game in English, and either root (Magisk) or the free
+  [Shizuku](https://shizuku.rikka.app/) app (no root, a one-time pairing over Wi-Fi).
+- **Any screen:** built on a 2560x1600 tablet; on other screens (phones) the app switches the screen to that
+  shape while a run is going and back afterwards, by default at 1920x1200 (*Fast*: the bot thinks ~40% faster). Tested without root on a Galaxy S23.
+- The repo is set up for coding agents too: point yours at it (`CLAUDE.md` is the entry point).
 
 ## For developers
 
@@ -51,18 +52,20 @@ terms of service: use it at your own risk.*
 
 ## Use the app (no laptop needed)
 
-1. Open **SGM Bot** on the tablet. Tap **Show overlay, then open the game** (the first time it asks for
-   "Display over other apps").
-2. In Skullgirls, tap **▶** on the translucent panel at the top left. Magisk asks for root once: allow it
-   and choose "Forever".
-3. The panel shows the current step: **⏸** pauses, **▶** resumes, **■** stops. **☰** opens recent steps and the
+1. Open **SGM Bot** and do the checklist (first time only: *Display over other apps*, then root or Shizuku;
+   [guide](docs/SETUP.md)). Tap **Show the panel and open Skullgirls**.
+2. In Skullgirls, tap **▶** on the translucent panel at the top left, over your name. With root, Magisk asks once:
+   allow it and choose "Forever". On a phone (any screen that isn't 2560x1600) tap **⤢** first: it switches the
+   screen to the tablet's 16:10 shape and restarts the game; open your event or prize fights, then ▶.
+3. The panel shows the current step: **⏸** pauses at once (no more taps, even mid-step; on **▶** the bot looks
+   at the screen again), **▶** resumes, **■** stops. **☰** opens recent steps and the
    mode (**Auto** detects event vs prize; Event / Prize force one) and pauses the bot while open. Mode changes
-   apply from the next ▶. Drag the panel by its text.
+   apply from the next ▶. Touching the game pauses the bot too. Drag the panel by its text; it remembers the spot (hold the text to put it back).
    During an event fight it shows the tries left on that node: `[fight +++]`, and each loss turns a `+` into `✗`.
 4. When the bot stops on its own, the reason is the last line on the panel (e.g. an unknown screen, or no
    opponent under the cap).
 
-Log on the tablet: `/data/data/dev.umer.sgmbot/files/logs/bot.log`.
+Log on the device: `/data/data/dev.umer.sgmbot/files/logs/bot.log` (readable with root, or `run-as` on a debug build).
 
 ## Build / update the app (Mac)
 
